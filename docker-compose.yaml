@@ -32,12 +32,14 @@ services:
       - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
       - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - PYTHONPATH=/opt/airflow/scripts
     volumes:
       - ./.airflow/dags:/opt/airflow/dags
       - ./.airflow/logs:/opt/airflow/logs
       - ./.airflow/plugins:/opt/airflow/plugins
       - ./data:/opt/airflow/data
       - ./configs:/opt/airflow/configs
+      - ./scripts:/opt/airflow/scripts
     ports:
       - "8080:8080"
     command: webserver
@@ -59,12 +61,14 @@ services:
       - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW_CONN_POSTGRES_DEFAULT=postgresql://airflow:airflow@postgres:5432/airflow
+      - PYTHONPATH=/opt/airflow/scripts
     volumes:
       - ./.airflow/dags:/opt/airflow/dags
       - ./.airflow/logs:/opt/airflow/logs
       - ./.airflow/plugins:/opt/airflow/plugins
       - ./data:/opt/airflow/data
       - ./configs:/opt/airflow/configs
+      - ./scripts:/opt/airflow/scripts
     command: scheduler
     depends_on:
       postgres:
@@ -84,12 +88,14 @@ services:
       - AIRFLOW__CELERY__BROKER_URL=redis://redis:6379/0
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW_CONN_POSTGRES_DEFAULT=postgresql://airflow:airflow@postgres:5432/airflow
+      - PYTHONPATH=/opt/airflow/scripts
     volumes:
       - ./.airflow/dags:/opt/airflow/dags
       - ./.airflow/logs:/opt/airflow/logs
       - ./.airflow/plugins:/opt/airflow/plugins
       - ./data:/opt/airflow/data
       - ./configs:/opt/airflow/configs
+      - ./scripts:/opt/airflow/scripts
     command: celery worker
     depends_on:
       postgres:

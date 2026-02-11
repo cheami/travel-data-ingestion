@@ -1,0 +1,17 @@
+{
+  "snowflake_config": {
+    "account": "xy12345.us-east-1",
+    "user": "airflow_user",
+    "password": "ExamplePassword123!",
+    "warehouse": "COMPUTE_WH",
+    "database": "TRAVEL_DATA",
+    "schema": "RAW",
+    "role": "ACCOUNTADMIN"
+  },
+  "azure_blob_config": {
+    "connection_string": "DefaultEndpointsProtocol=https;AccountName=examplestorage;AccountKey=ExampleKey123==;EndpointSuffix=core.windows.net",
+    "container_name": "landing-zone",
+    "account_name": "examplestorage",
+    "account_key": "ExampleKey123=="
+  }
+}

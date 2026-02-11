@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+config/airflow_variables.json
+Data_Engineering_Project_Outline
+.airflow_home/
+.airflow/logs/

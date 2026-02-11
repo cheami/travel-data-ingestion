@@ -1,0 +1,20 @@
+{
+  "google_timeline": {
+    "source_path": "google_timeline/",
+    "file_pattern": "*.json",
+    "target_table": "bronze_google_timeline",
+    "format": "json"
+  },
+  "manual_log": {
+    "source_path": "manual_logs/",
+    "file_pattern": "*.csv",
+    "target_table": "bronze_manual_logs",
+    "format": "csv"
+  },
+  "transactions": {
+    "source_path": "transactions/",
+    "file_pattern": "*.csv",
+    "target_table": "bronze_transactions",
+    "format": "csv"
+  }
+}

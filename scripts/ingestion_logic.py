@@ -16,7 +16,16 @@ def load_config():
     if not os.path.exists(CONFIG_PATH):
         return {}
     with open(CONFIG_PATH, "r") as f:
-        return json.load(f)
+        config = json.load(f)
+        return config.get("datasets", config)
+
+def get_system_config():
+    """Loads system configuration from JSON."""
+    if not os.path.exists(CONFIG_PATH):
+        return {}
+    with open(CONFIG_PATH, "r") as f:
+        config = json.load(f)
+        return config.get("system_config", {})
 
 # Main logic for processing files and loading them into the database
 def ingest_dataset(dataset_name, config, **kwargs):
@@ -33,6 +42,10 @@ def ingest_dataset(dataset_name, config, **kwargs):
     print(f"--- Starting Ingestion for {dataset_name} ---")
     print(f"Looking for files in: {full_path}")
     print(f"Matching pattern: {file_pattern}")
+
+    system_config = get_system_config()
+    log_table = system_config.get("ingestion_log_table", "admin.ingestion_logs")
+    target_schema = config.get("target_schema", "bronze")
     
     # Simulation of checking for files
     if os.path.exists(full_path):
@@ -44,11 +57,11 @@ def ingest_dataset(dataset_name, config, **kwargs):
             hook = PostgresHook(postgres_conn_id='postgres_default')
             
             # Ensure Schema Exists
-            hook.run("CREATE SCHEMA IF NOT EXISTS travel;")
+            hook.run(f"CREATE SCHEMA IF NOT EXISTS {target_schema};")
             
             # 1. Ensure Logging Table Exists
-            hook.run("""
-                CREATE TABLE IF NOT EXISTS travel.ingestion_logs (
+            hook.run(f"""
+                CREATE TABLE IF NOT EXISTS {log_table} (
                     load_id SERIAL PRIMARY KEY,
                     dataset_name VARCHAR(50),
                     file_name VARCHAR(255),
@@ -57,7 +70,9 @@ def ingest_dataset(dataset_name, config, **kwargs):
                     row_count INT,
                     status VARCHAR(20),
                     error_message TEXT,
-                    ingestion_timestamp TIMESTAMP
+                    ingestion_timestamp TIMESTAMP,
+                    target_schema VARCHAR(50),
+                    target_table VARCHAR(100)
                 );
             """)
             
@@ -67,7 +82,7 @@ def ingest_dataset(dataset_name, config, **kwargs):
                 file_path = os.path.join(full_path, filename)
                 
                 # 2. Idempotency Check: Has this file been loaded successfully?
-                check_sql = "SELECT 1 FROM travel.ingestion_logs WHERE file_name = %s AND status = 'SUCCESS'"
+                check_sql = f"SELECT 1 FROM {log_table} WHERE file_name = %s AND status = 'SUCCESS'"
                 if hook.get_first(check_sql, parameters=(filename,)):
                     print(f"Skipping {filename}: Already loaded successfully.")
                     continue
@@ -76,10 +91,10 @@ def ingest_dataset(dataset_name, config, **kwargs):
                 file_size = os.path.getsize(file_path)
                 
                 # 3. Start Log (Get load_id)
-                insert_init_sql = """
-                    INSERT INTO travel.ingestion_logs 
-                    (dataset_name, file_name, file_size_bytes, file_type, status, ingestion_timestamp)
-                    VALUES (%s, %s, %s, %s, 'RUNNING', %s)
+                insert_init_sql = f"""
+                    INSERT INTO {log_table} 
+                    (dataset_name, file_name, file_size_bytes, file_type, status, ingestion_timestamp, target_schema, target_table)
+                    VALUES (%s, %s, %s, %s, 'RUNNING', %s, %s, %s)
                     RETURNING load_id;
                 """
                 load_id = hook.get_first(insert_init_sql, parameters=(
@@ -87,7 +102,9 @@ def ingest_dataset(dataset_name, config, **kwargs):
                     filename, 
                     file_size, 
                     config['format'], 
-                    pendulum.now()
+                    pendulum.now(),
+                    target_schema,
+                    config['target_table']
                 ))[0]
 
                 row_count = 0
@@ -99,7 +116,12 @@ def ingest_dataset(dataset_name, config, **kwargs):
                     if config['format'] == 'csv':
                         df = pd.read_csv(file_path)
                     elif config['format'] == 'json':
-                        df = pd.read_json(file_path)
+                        try:
+                            df = pd.read_json(file_path)
+                        except ValueError:
+                            with open(file_path, 'r') as f:
+                                raw_data = json.load(f)
+                            df = pd.DataFrame([{'raw_data': json.dumps(raw_data)}])
                     else:
                         raise ValueError(f"Unsupported format: {config['format']}")
                     
@@ -112,13 +134,13 @@ def ingest_dataset(dataset_name, config, **kwargs):
                     df['row_id'] = [f"{load_id}_{i}" for i in range(len(df))]
 
                     # Ensure target table has load_id and row_id columns if it exists
-                    check_table_sql = f"SELECT to_regclass('travel.{config['target_table']}')"
+                    check_table_sql = f"SELECT to_regclass('{target_schema}.{config['target_table']}')"
                     if hook.get_first(check_table_sql)[0]:
-                        hook.run(f"ALTER TABLE travel.{config['target_table']} ADD COLUMN IF NOT EXISTS load_id INTEGER")
-                        hook.run(f"ALTER TABLE travel.{config['target_table']} ADD COLUMN IF NOT EXISTS row_id VARCHAR(255)")
+                        hook.run(f"ALTER TABLE {target_schema}.{config['target_table']} ADD COLUMN IF NOT EXISTS load_id INTEGER")
+                        hook.run(f"ALTER TABLE {target_schema}.{config['target_table']} ADD COLUMN IF NOT EXISTS row_id VARCHAR(255)")
 
                     # Write to Postgres
-                    df.to_sql(config['target_table'], engine, schema='travel', if_exists='append', index=False)
+                    df.to_sql(config['target_table'], engine, schema=target_schema, if_exists='append', index=False)
                     print(f"Loaded {row_count} rows into {config['target_table']}")
 
                 except Exception as e:
@@ -127,8 +149,8 @@ def ingest_dataset(dataset_name, config, **kwargs):
                     print(f"Error loading {filename}: {e}")
                 
                 # 4. Update Log (Success or Failure)
-                update_log_sql = """
-                    UPDATE travel.ingestion_logs 
+                update_log_sql = f"""
+                    UPDATE {log_table} 
                     SET row_count = %s, status = %s, error_message = %s
                     WHERE load_id = %s
                 """

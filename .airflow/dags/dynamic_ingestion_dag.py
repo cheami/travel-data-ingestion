@@ -11,7 +11,7 @@ from ingestion_logic import load_config, ingest_dataset
 with DAG(
     dag_id="metadata_driven_ingestion",
     start_date=pendulum.datetime(2024, 1, 1, tz="UTC"),
-    schedule_interval="@daily",
+    schedule_interval=None,
     catchup=False,
     tags=["ingestion", "metadata-driven"],
     max_active_tasks=1,

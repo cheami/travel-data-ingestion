@@ -7,6 +7,13 @@ This project is a metadata-driven data ingestion framework using Apache Airflow,
 - Docker
 - Docker Compose
 
+## Technologies
+
+- **Apache Airflow**: Orchestration engine for scheduling and monitoring workflows.
+- **PostgreSQL**: Relational database used as the simulated Bronze layer.
+- **Docker**: Containerization for consistent development environments.
+- **Adminer**: Lightweight database management tool.
+
 ## Quick Start
 
 ### 1. Setup Environment
@@ -55,15 +62,25 @@ Use Adminer to query the Postgres database and view ingested tables.
 1.  **Add Data**: Place your source files (CSV or JSON) in the `data/landing/` subdirectories defined in `configs/datasets.json`.
     *   Example: `data/landing/manual_logs/sample.csv`
     *   Example: `data/landing/transactions/data.csv`
-2.  **Trigger DAG**: Go to the Airflow UI, unpause, and trigger the `metadata_driven_ingestion` DAG.
-3.  **Verify**: Check the Airflow logs or use Adminer to query tables in the `travel` schema (e.g., `travel.bronze_manual_logs`).
+    *   Example: `data/landing/fitbit/heart_rate/data.csv`
+2.  **Trigger Ingestion**: Go to the Airflow UI, unpause, and trigger the `metadata_driven_ingestion` DAG. This loads data into the `bronze` schema.
+3.  **Trigger Transformation**: Run the transformation DAGs to move data from `bronze` to `silver`.
+4.  **Verify**: Check the Airflow logs or use Adminer to query tables in the `bronze` and `silver` schemas.
+5.  **Reset (Optional)**: Trigger the `reset_database` DAG to drop all schemas and start fresh.
 
 ## Key Features
 
 ### Idempotency & Logging
-The pipeline tracks every file ingestion attempt in the `travel.ingestion_logs` table.
+The pipeline tracks every file ingestion attempt in the `admin.ingestion_logs` table.
 *   **Prevents Duplicates**: If a file is logged as `SUCCESS`, it will be skipped in future runs.
-*   **Traceability**: Each row in the target tables includes a `load_id` column that links back to the log entry.
+*   **Traceability**: Each row in the target tables includes a `load_id` column that links back to the log entry. The log now also tracks `target_schema` and `target_table`.
 
 ### Schema Organization
-All data tables and logs are stored in the `travel` schema to keep the database organized.
+Data is organized into the following schemas:
+*   **admin**: System tables like `ingestion_logs`.
+*   **bronze**: Raw data ingested directly from files (e.g., `bronze.google_timeline`, `bronze.fitbit_steps`).
+*   **silver**: Cleaned and aggregated data (e.g., `silver.daily_spend`).
+*   **gold**: Business-level aggregates (future).
+
+### Configuration
+The `configs/datasets.json` file dynamically controls source paths, file patterns, target schemas, and target tables.

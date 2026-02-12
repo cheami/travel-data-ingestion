@@ -8,7 +8,7 @@ from transformation_logic import transform_silver
 with DAG(
     dag_id="silver_transformation",
     start_date=pendulum.datetime(2024, 1, 1, tz="UTC"),
-    schedule_interval="@daily",
+    schedule_interval=None,
     catchup=False,
     tags=["transformation", "silver"],
 ) as dag:

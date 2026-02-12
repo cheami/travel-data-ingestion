@@ -1,20 +1,56 @@
 {
-  "google_timeline": {
-    "source_path": "google_timeline/",
-    "file_pattern": "*.json",
-    "target_table": "bronze_google_timeline",
-    "format": "json"
+  "system_config": {
+    "ingestion_log_table": "admin.ingestion_logs"
   },
-  "manual_log": {
-    "source_path": "manual_logs/",
-    "file_pattern": "*.csv",
-    "target_table": "bronze_manual_logs",
-    "format": "csv"
-  },
-  "transactions": {
-    "source_path": "transactions/",
-    "file_pattern": "*.csv",
-    "target_table": "bronze_transactions",
-    "format": "csv"
+  "datasets": {
+    "google_timeline": {
+      "source_path": "google_timeline/",
+      "file_pattern": "*.json",
+      "target_schema": "bronze",
+      "target_table": "google_timeline",
+      "format": "json"
+    },
+    "manual_logs": {
+      "source_path": "manual_logs/",
+      "file_pattern": "*.csv",
+      "target_schema": "bronze",
+      "target_table": "manual_logs",
+      "format": "csv"
+    },
+    "transactions": {
+      "source_path": "transactions/",
+      "file_pattern": "*.csv",
+      "target_schema": "bronze",
+      "target_table": "transactions",
+      "format": "csv"
+    },
+    "fitbit_heart_rate": {
+      "source_path": "fitbit/heart_rate/",
+      "file_pattern": "*.csv",
+      "target_schema": "bronze",
+      "target_table": "fitbit_heart_rate",
+      "format": "csv"
+    },
+    "fitbit_steps": {
+      "source_path": "fitbit/steps/",
+      "file_pattern": "*.csv",
+      "target_schema": "bronze",
+      "target_table": "fitbit_steps",
+      "format": "csv"
+    },
+    "fitbit_sleep_score": {
+      "source_path": "fitbit/sleep_score/",
+      "file_pattern": "*.csv",
+      "target_schema": "bronze",
+      "target_table": "fitbit_sleep_score",
+      "format": "csv"
+    },
+    "flight_logs": {
+      "source_path": "flight_logs/",
+      "file_pattern": "*.csv",
+      "target_schema": "bronze",
+      "target_table": "flight_logs",
+      "format": "csv"
+    }
   }
 }

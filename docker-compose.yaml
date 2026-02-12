@@ -26,7 +26,7 @@ services:
       retries: 5
 
   airflow-webserver:
-    image: apache/airflow:2.8.1
+    build: .
     user: "${AIRFLOW_UID:-50000}:0"
     environment:
       - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
@@ -55,7 +55,7 @@ services:
         condition: service_completed_successfully
 
   airflow-scheduler:
-    image: apache/airflow:2.8.1
+    build: .
     user: "${AIRFLOW_UID:-50000}:0"
     environment:
       - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
@@ -83,7 +83,7 @@ services:
         condition: service_completed_successfully
 
   airflow-worker:
-    image: apache/airflow:2.8.1
+    build: .
     user: "${AIRFLOW_UID:-50000}:0"
     environment:
       - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
@@ -111,7 +111,7 @@ services:
         condition: service_completed_successfully
 
   airflow-init:
-    image: apache/airflow:2.8.1
+    build: .
     user: "${AIRFLOW_UID:-50000}:0"
     environment:
       - AIRFLOW__CORE__EXECUTOR=CeleryExecutor

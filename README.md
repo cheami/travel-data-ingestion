@@ -24,10 +24,10 @@ echo "AIRFLOW_UID=$(id -u)" > .env
 ```
 
 ### 2. Start Services
-Run the following command to download images and start the containers:
+Run the following command to build the custom image (installing dependencies) and start the containers:
 
 ```bash
-docker compose up -d
+docker compose up --build -d
 ```
 
 ### 3. Check Status

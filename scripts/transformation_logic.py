@@ -43,11 +43,11 @@ def transform_silver():
         if hook.get_first(f"SELECT to_regclass('silver.{table_name}')")[0]:
             ids_str = ','.join(map(str, load_ids))
             print(f"Clearing existing data for load_ids: {load_ids} in {table_name}")
-            hook.run(f"DELETE FROM travel.{table_name} WHERE load_id IN ({ids_str})")
+            hook.run(f"DELETE FROM silver.{table_name} WHERE load_id IN ({ids_str})")
         
         # Append data
         df.to_sql(table_name, engine, schema='silver', if_exists='append', index=False)
-        print(f"Success: Wrote {len(df)} rows to travel.{table_name}")
+        print(f"Success: Wrote {len(df)} rows to silver.{table_name}")
 
     # --- 1. Process Transactions (Daily Spend) ---
     print("Processing Transactions...")
@@ -71,6 +71,9 @@ def transform_silver():
             daily_spend = df_trans.groupby(['date', 'type', 'load_id'])['amount'].sum().reset_index()
 
             save_idempotent(daily_spend, 'daily_spend')
+            
+            # Save exact copy to Silver
+            save_idempotent(df_trans, 'all_spending')
 
     except Exception as e:
         print(f"Skipping transactions: {e}")
@@ -92,3 +95,87 @@ def transform_silver():
 
     except Exception as e:
         print(f"Skipping manual logs: {e}")
+
+    # --- 3. Process Flight Logs ---
+    print("Processing Flight Logs...")
+    flight_config = datasets_config.get('flight_logs', {})
+    flight_table = flight_config.get('target_table', 'flight_logs')
+
+    try:
+        df_flights = pd.read_sql(f"SELECT * FROM bronze.{flight_table}", engine)
+        if not df_flights.empty:
+            # Normalize columns: lower case and replace spaces with underscores
+            df_flights.columns = df_flights.columns.str.strip().str.lower().str.replace(' ', '_')
+
+            # Regex pattern to extract City, Airport, IATA, ICAO
+            # Format: "City / Airport Name (IATA/ICAO)"
+            pattern = r'^(?P<city>.*?) / (?P<airport>.*?) \((?P<iata>.*?)/(?P<icao>.*?)\)$'
+
+            # Apply extraction for 'from' column
+            if 'from' in df_flights.columns:
+                dep_data = df_flights['from'].str.extract(pattern)
+                df_flights['departure_city'] = dep_data['city']
+                df_flights['departure_airport'] = dep_data['airport']
+                df_flights['departure_airport_code_iata'] = dep_data['iata']
+                df_flights['departure_airport_code_icao'] = dep_data['icao']
+
+            # Apply extraction for 'to' column
+            if 'to' in df_flights.columns:
+                arr_data = df_flights['to'].str.extract(pattern)
+                df_flights['arrival_city'] = arr_data['city']
+                df_flights['arrival_airport'] = arr_data['airport']
+                df_flights['arrival_airport_code_iata'] = arr_data['iata']
+                df_flights['arrival_airport_code_icao'] = arr_data['icao']
+
+            # Apply extraction for 'airline' column
+            if 'airline' in df_flights.columns:
+                airline_pattern = r'^(?P<name>.*?) \((?P<iata>.*?)/(?P<icao>.*?)\)$'
+                airline_data = df_flights['airline'].str.extract(airline_pattern)
+                df_flights['airline_name'] = airline_data['name']
+                df_flights['airline_iata'] = airline_data['iata']
+                df_flights['airline_icao'] = airline_data['icao']
+
+            # Drop original composite columns
+            df_flights.drop(columns=['from', 'to', 'airline'], inplace=True, errors='ignore')
+
+            save_idempotent(df_flights, 'flight_logs')
+
+    except Exception as e:
+        print(f"Skipping flight logs: {e}")
+
+    # --- 4. Process Fitbit Steps ---
+    print("Processing Fitbit Steps...")
+    steps_config = datasets_config.get('fitbit_steps', {})
+    steps_table = steps_config.get('target_table', 'fitbit_steps')
+
+    try:
+        df_steps = pd.read_sql(f"SELECT * FROM bronze.{steps_table}", engine)
+        if not df_steps.empty:
+            # Convert timestamp to datetime
+            df_steps['timestamp'] = pd.to_datetime(df_steps['timestamp'])
+            df_steps['date'] = df_steps['timestamp'].dt.date
+            df_steps['hour'] = df_steps['timestamp'].dt.hour
+
+            # Aggregate steps by date and hour
+            # We take the max load_id for the group to maintain lineage
+            hourly_agg = df_steps.groupby(['date', 'hour']).agg({'steps': 'sum', 'load_id': 'max'}).reset_index()
+
+            # Ensure 24 rows for every date (0-23 hours)
+            dates = hourly_agg['date'].unique()
+            all_combinations = [{'date': d, 'hour': h} for d in dates for h in range(24)]
+            df_full = pd.DataFrame(all_combinations)
+
+            # Merge aggregated data with the full 24-hour frame
+            df_final = pd.merge(df_full, hourly_agg, on=['date', 'hour'], how='left')
+
+            # Fill missing steps with 0
+            df_final['steps'] = df_final['steps'].fillna(0).astype(int)
+
+            # Fill missing load_id with the max load_id for that date (so they are grouped correctly)
+            date_load_map = df_steps.groupby('date')['load_id'].max().to_dict()
+            df_final['load_id'] = df_final['load_id'].fillna(df_final['date'].map(date_load_map)).astype(int)
+
+            save_idempotent(df_final, 'hourly_step_count')
+
+    except Exception as e:
+        print(f"Skipping fitbit steps: {e}")

@@ -62,7 +62,7 @@ Use Adminer to query the Postgres database and view ingested tables.
 1.  **Add Data**: Place your source files (CSV or JSON) in the `data/landing/` subdirectories defined in `configs/datasets.json`.
     *   Example: `data/landing/manual_logs/sample.csv`
     *   Example: `data/landing/transactions/data.csv`
-    *   Example: `data/landing/fitbit/heart_rate/data.csv`
+    *   Example: `data/landing/fitbit/heart_rate/heart_rate_2023-08-04.csv`
 2.  **Trigger Ingestion**: Go to the Airflow UI, unpause, and trigger the `metadata_driven_ingestion` DAG. This loads data into the `bronze` schema.
 3.  **Trigger Transformation**: Run the transformation DAGs to move data from `bronze` to `silver`.
 4.  **Verify**: Check the Airflow logs or use Adminer to query tables in the `bronze` and `silver` schemas.
@@ -75,11 +75,19 @@ The pipeline tracks every file ingestion attempt in the `admin.ingestion_logs` t
 *   **Prevents Duplicates**: If a file is logged as `SUCCESS`, it will be skipped in future runs.
 *   **Traceability**: Each row in the target tables includes a `load_id` column that links back to the log entry. The log now also tracks `target_schema` and `target_table`.
 
+### Modular Transformations
+Transformation logic is organized in `scripts/transformations/` and processes data incrementally:
+*   **Load-ID Based Processing**: Scripts iterate through distinct `load_id`s in the Bronze layer to process specific batches of data.
+*   **Idempotency**: Existing data for a specific `load_id` is cleared from the Silver table before insertion to prevent duplicates.
+
 ### Schema Organization
 Data is organized into the following schemas:
 *   **admin**: System tables like `ingestion_logs`.
 *   **bronze**: Raw data ingested directly from files (e.g., `bronze.google_timeline`, `bronze.fitbit_steps`).
-*   **silver**: Cleaned and aggregated data (e.g., `silver.daily_spend`).
+*   **silver**: Cleaned and aggregated data.
+    *   **Finance**: `daily_spend`, `all_spending`
+    *   **Health**: `hourly_step_count`, `sleep_log`, `sleep_daily_summary`, `heart_rate_minute_log`, `heart_rate_hourly_summary`
+    *   **Travel**: `flight_logs`, `manual_logs`
 *   **gold**: Business-level aggregates (future).
 
 ### Configuration

@@ -29,6 +29,7 @@ services:
     build: .
     user: "${AIRFLOW_UID:-50000}:0"
     environment:
+      - PYTHONUNBUFFERED=1
       - AIRFLOW__CORE__EXECUTOR=CeleryExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
       - AIRFLOW__CELERY__RESULT_BACKEND=db+postgresql://airflow:airflow@postgres/airflow
@@ -101,7 +102,7 @@ services:
       - ./configs:/opt/airflow/configs
       - ./scripts:/opt/airflow/scripts
       - ./sql:/opt/airflow/sql
-    command: celery worker
+    command: airflow celery worker
     depends_on:
       postgres:
         condition: service_healthy

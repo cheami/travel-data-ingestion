@@ -1,14 +1,17 @@
 import pandas as pd
 from transformations.utils import save_idempotent
 
-def process_manual_logs(datasets_config, engine, hook):
+def process_manual_logs(datasets_config, engine, hook, load_id=None):
     print("Processing Manual Logs...")
     logs_config = datasets_config.get('manual_logs', {})
     logs_table = logs_config.get('target_table', 'manual_logs')
 
     try:
-        load_ids_df = pd.read_sql(f"SELECT DISTINCT load_id FROM bronze.{logs_table}", engine)
-        load_ids = load_ids_df['load_id'].tolist()
+        if load_id:
+            load_ids = [load_id]
+        else:
+            load_ids_df = pd.read_sql(f"SELECT DISTINCT load_id FROM bronze.{logs_table}", engine)
+            load_ids = load_ids_df['load_id'].tolist()
 
         for load_id in load_ids:
             df_logs = pd.read_sql(f"SELECT * FROM bronze.{logs_table} WHERE load_id = {load_id}", engine)

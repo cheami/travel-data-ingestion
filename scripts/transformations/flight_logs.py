@@ -1,14 +1,17 @@
 import pandas as pd
 from transformations.utils import save_idempotent
 
-def process_flight_logs(datasets_config, engine, hook):
+def process_flight_logs(datasets_config, engine, hook, load_id=None):
     print("Processing Flight Logs...")
     flight_config = datasets_config.get('flight_logs', {})
     flight_table = flight_config.get('target_table', 'flight_logs')
 
     try:
-        load_ids_df = pd.read_sql(f"SELECT DISTINCT load_id FROM bronze.{flight_table}", engine)
-        load_ids = load_ids_df['load_id'].tolist()
+        if load_id:
+            load_ids = [load_id]
+        else:
+            load_ids_df = pd.read_sql(f"SELECT DISTINCT load_id FROM bronze.{flight_table}", engine)
+            load_ids = load_ids_df['load_id'].tolist()
 
         for load_id in load_ids:
             df_flights = pd.read_sql(f"SELECT * FROM bronze.{flight_table} WHERE load_id = {load_id}", engine)

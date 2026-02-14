@@ -80,6 +80,43 @@ Transformation logic is organized in `scripts/transformations/` and processes da
 *   **Load-ID Based Processing**: Scripts iterate through distinct `load_id`s in the Bronze layer to process specific batches of data.
 *   **Idempotency**: Existing data for a specific `load_id` is cleared from the Silver table before insertion to prevent duplicates.
 
+# Google Timeline Transformation
+
+## Overview
+This module handles the parsing and transformation of Google Timeline (Location History) JSON data from the Bronze layer to the Silver layer.
+
+## Source
+*   **Table**: `bronze.google_timeline`
+*   **Format**: JSON (Google Takeout Semantic Location History)
+
+## Transformation Logic
+The transformation script (`scripts/transformations/google_timeline.py`) performs the following operations:
+
+1.  **JSON Parsing**: Extracts the `semanticSegments` list from the raw JSON data.
+2.  **Segment Classification**: Identifies and separates data into `VISIT` and `ACTIVITY` types.
+3.  **Coordinate Cleaning**: Parses latitude and longitude strings (e.g., `27.9142°, -82.7040°`) into decimal format.
+4.  **Data Extraction**:
+    *   **Visits**: Captures `placeId`, location coordinates, and confidence probability.
+    *   **Activities**: Captures `activityType`, `distanceMeters`, and start/end coordinates.
+5.  **Error Handling**: Includes dynamic column detection for the JSON source and robust error logging.
+
+## Target Table
+**Table**: `silver.google_timeline`
+
+| Column Name | Description |
+| `timeline_id` | Primary Key |
+| `load_id` | ETL Load Identifier |
+| `start_time` | Segment start timestamp |
+| `end_time` | Segment end timestamp |
+| `segment_type` | 'VISIT' or 'ACTIVITY' |
+| `place_id` | Google Place ID (for Visits) |
+| `visit_latitude` | Latitude (for Visits) |
+| `visit_longitude` | Longitude (for Visits) |
+| `activity_type` | Transport mode (e.g., IN_PASSENGER_VEHICLE) |
+| `distance_meters` | Distance traveled (for Activities) |
+| `confidence` | Probability score of the inference |
+
+
 ### Schema Organization
 Data is organized into the following schemas:
 *   **admin**: System tables like `ingestion_logs`.

@@ -15,6 +15,7 @@ def transform_silver(**kwargs):
     from transformations.fitbit_steps import process_fitbit_steps
     from transformations.fitbit_sleep import process_fitbit_sleep
     from transformations.fitbit_heart_rate import process_fitbit_heart_rate
+    from transformations.google_timeline import process_google_timeline
 
     datasets_config = load_config()
 
@@ -45,3 +46,5 @@ def transform_silver(**kwargs):
         process_fitbit_sleep(datasets_config, engine, hook, target_load_id)
     if not target_transform or target_transform == 'fitbit_heart_rate':
         process_fitbit_heart_rate(datasets_config, engine, hook, target_load_id)
+    if not target_transform or target_transform == 'google_timeline':
+        process_google_timeline(datasets_config, engine, hook, target_load_id)

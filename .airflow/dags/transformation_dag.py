@@ -13,7 +13,7 @@ with DAG(
     catchup=False,
     tags=["transformation", "silver"],
     params={
-        "transformation": Param(None, type=["null", "string"], description="Optional: Specific transformation to run (e.g., 'transactions, manual_logs, flight_logs, fitbit_steps, fitbit_sleep_score, fitbit_heart_rate')."),
+        "transformation": Param(None, type=["null", "string"], description="Optional: Specific transformation to run (e.g., 'transactions, manual_logs, flight_logs, fitbit_steps, fitbit_sleep_score, fitbit_heart_rate, google_timeline')."),
         "job_id": Param(None, type=["null", "integer"], description="Optional: Specific Job ID (load_id) to process."),
     },
 ) as dag:

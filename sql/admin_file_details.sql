@@ -1,4 +1,4 @@
-CREATE TABLE admin.file_details (
+CREATE TABLE IF NOT EXISTS admin.file_details (
     file_id INT IDENTITY(1,1),
     container VARCHAR(50),
     stage VARCHAR(50),

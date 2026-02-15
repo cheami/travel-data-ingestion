@@ -55,7 +55,7 @@ def log_transformation_start(conn, load_id, dataset_name, target_tables):
             CREATE TABLE IF NOT EXISTS ADMIN.TRANSFORMATION_LOGS (
                 transformation_id NUMBER IDENTITY(1,1) PRIMARY KEY,
                 load_id NUMBER,
-                transformation_name VARCHAR(100),
+                DATASET_NAME VARCHAR(100),
                 target_table VARCHAR(100),
                 status VARCHAR(20),
                 rows_processed NUMBER,
@@ -66,12 +66,12 @@ def log_transformation_start(conn, load_id, dataset_name, target_tables):
         """)
         
         cursor.execute("""
-            INSERT INTO ADMIN.TRANSFORMATION_LOGS (load_id, transformation_name, target_table, status)
+            INSERT INTO ADMIN.TRANSFORMATION_LOGS (load_id, DATASET_NAME, target_table, status)
             VALUES (%s, %s, %s, 'RUNNING')
         """, (load_id, dataset_name, target_tables))
         
         # Get the generated ID
-        cursor.execute("SELECT MAX(transformation_id) FROM ADMIN.TRANSFORMATION_LOGS WHERE load_id = %s AND transformation_name = %s", (load_id, dataset_name))
+        cursor.execute("SELECT MAX(transformation_id) FROM ADMIN.TRANSFORMATION_LOGS WHERE load_id = %s AND DATASET_NAME = %s", (load_id, dataset_name))
         result = cursor.fetchone()
         return result[0] if result else None
     finally:

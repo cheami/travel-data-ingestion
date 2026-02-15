@@ -1,13 +1,13 @@
 DROP TABLE IF EXISTS admin.transformation_logs;
 
-CREATE TABLE IF NOT EXISTS admin.transformation_logs (
-    transformation_id SERIAL PRIMARY KEY,
-    load_id INTEGER,
-    transformation_name VARCHAR(100),
-    target_table VARCHAR(100),
-    status VARCHAR(20),
-    rows_processed INTEGER,
-    error_message TEXT,
-    start_time TIMESTAMP,
-    end_time TIMESTAMP
+CREATE TABLE IF NOT EXISTS ADMIN.TRANSFORMATION_LOGS (
+    TRANSFORMATION_ID NUMBER IDENTITY(1,1) PRIMARY KEY,
+    LOAD_ID NUMBER,
+    DATASET_NAME VARCHAR(100),
+    TARGET_TABLE VARCHAR(100),
+    STATUS VARCHAR(20),
+    ROWS_PROCESSED NUMBER,
+    ERROR_MESSAGE STRING,
+    START_TIME TIMESTAMP_NTZ(9),
+    END_TIME TIMESTAMP_NTZ(9)
 );

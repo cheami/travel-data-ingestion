@@ -15,7 +15,7 @@ def process_transactions(datasets_config, conn, load_id=None, reprocess=False):
             load_ids = load_ids_df['load_id'].tolist()
 
         if not reprocess:
-            processed_df = pd.read_sql(f"SELECT DISTINCT load_id FROM ADMIN.TRANSFORMATION_LOGS WHERE TRANSFORMATION_NAME = 'transactions' AND status = 'SUCCESS'", conn)
+            processed_df = pd.read_sql(f"SELECT DISTINCT load_id FROM ADMIN.TRANSFORMATION_LOGS WHERE DATASET_NAME = 'transactions' AND status = 'SUCCESS'", conn)
             processed_df.columns = [c.lower() for c in processed_df.columns]
             processed_ids = set(processed_df['load_id'].tolist())
             load_ids = [lid for lid in load_ids if lid not in processed_ids]

@@ -64,16 +64,23 @@ Use Adminer to query the Postgres database and view ingested tables.
     *   Example: `data/landing/transactions/data.csv`
     *   Example: `data/landing/fitbit/heart_rate/heart_rate_2023-08-04.csv`
 2.  **Trigger Ingestion**: Go to the Airflow UI, unpause, and trigger the `metadata_driven_ingestion` DAG. This loads data into the `bronze` schema.
-3.  **Trigger Transformation**: Run the transformation DAGs to move data from `bronze` to `silver`.
+3.  **Trigger Transformation**: Run the `silver_transformation` DAG to move data from `bronze` to `silver`.
+    *   **Parameters**:
+        *   `transformation`: (Optional) Run a specific transformation (e.g., `fitbit_steps`).
+        *   `job_id`: (Optional) Process a specific `load_id`.
+        *   `Reprocess`: (Optional) Set to `True` to re-process data that has already been marked as `SUCCESS` in the transformation logs.
 4.  **Verify**: Check the Airflow logs or use Adminer to query tables in the `bronze` and `silver` schemas.
 5.  **Reset (Optional)**: Trigger the `reset_database` DAG to drop all schemas and start fresh.
 
 ## Key Features
 
 ### Idempotency & Logging
-The pipeline tracks every file ingestion attempt in the `admin.ingestion_logs` table.
-*   **Prevents Duplicates**: If a file is logged as `SUCCESS`, it will be skipped in future runs.
-*   **Traceability**: Each row in the target tables includes a `load_id` column that links back to the log entry. The log now also tracks `target_schema` and `target_table`.
+The pipeline tracks ingestion and transformation status to ensure data integrity.
+*   **Ingestion**: Files are tracked in `admin.ingestion_logs`. If a file is logged as `SUCCESS`, it is skipped.
+*   **Transformation**: Processed `load_id`s are tracked in `ADMIN.TRANSFORMATION_LOGS`.
+    *   **Incremental**: Scripts check this log to skip already processed batches unless `Reprocess` is set to `True`.
+    *   **Audit**: Accurate row counts are logged for every transformation run by querying the target Silver tables.
+    *   **Traceability**: Each row in the target tables includes a `load_id` column that links back to the log entry.
 
 ### Modular Transformations
 Transformation logic is organized in `scripts/transformations/` and processes data incrementally:
@@ -88,34 +95,6 @@ This module handles the parsing and transformation of Google Timeline (Location 
 ## Source
 *   **Table**: `bronze.google_timeline`
 *   **Format**: JSON (Google Takeout Semantic Location History)
-
-## Transformation Logic
-The transformation script (`scripts/transformations/google_timeline.py`) performs the following operations:
-
-1.  **JSON Parsing**: Extracts the `semanticSegments` list from the raw JSON data.
-2.  **Segment Classification**: Identifies and separates data into `VISIT` and `ACTIVITY` types.
-3.  **Coordinate Cleaning**: Parses latitude and longitude strings (e.g., `27.9142°, -82.7040°`) into decimal format.
-4.  **Data Extraction**:
-    *   **Visits**: Captures `placeId`, location coordinates, and confidence probability.
-    *   **Activities**: Captures `activityType`, `distanceMeters`, and start/end coordinates.
-5.  **Error Handling**: Includes dynamic column detection for the JSON source and robust error logging.
-
-## Target Table
-**Table**: `silver.google_timeline`
-
-| Column Name | Description |
-| `timeline_id` | Primary Key |
-| `load_id` | ETL Load Identifier |
-| `start_time` | Segment start timestamp |
-| `end_time` | Segment end timestamp |
-| `segment_type` | 'VISIT' or 'ACTIVITY' |
-| `place_id` | Google Place ID (for Visits) |
-| `visit_latitude` | Latitude (for Visits) |
-| `visit_longitude` | Longitude (for Visits) |
-| `activity_type` | Transport mode (e.g., IN_PASSENGER_VEHICLE) |
-| `distance_meters` | Distance traveled (for Activities) |
-| `confidence` | Probability score of the inference |
-
 
 ### Schema Organization
 Data is organized into the following schemas:

@@ -1,7 +1,7 @@
 DROP TABLE IF EXISTS silver.heart_rate_minute_log;
 
 CREATE TABLE silver.heart_rate_minute_log (
-    log_timestamp TIMESTAMP,
+    log_timestamp VARCHAR,
     heart_rate_mean FLOAT,
     heart_rate_min FLOAT,
     heart_rate_max FLOAT,

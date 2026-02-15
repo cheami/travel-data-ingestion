@@ -1,70 +1,91 @@
-import json
 import pandas as pd
-import pendulum
-from airflow.providers.postgres.hooks.postgres import PostgresHook
+from snowflake.connector.pandas_tools import write_pandas
 
-def load_config():
-    """Loads the dataset configuration from JSON."""
-    config_path = "/opt/airflow/configs/datasets.json"
+def map_pandas_dtype_to_snowflake(dtype):
+    if pd.api.types.is_integer_dtype(dtype): return "NUMBER"
+    if pd.api.types.is_float_dtype(dtype): return "FLOAT"
+    if pd.api.types.is_bool_dtype(dtype): return "BOOLEAN"
+    if pd.api.types.is_datetime64_any_dtype(dtype): return "TIMESTAMP_TZ"
+    return "STRING"
+
+def save_idempotent(df, table_name, conn, schema='SILVER'):
+    """
+    Writes a DataFrame to Snowflake idempotently.
+    Deletes existing rows for the load_ids present in the DataFrame before writing.
+    """
+    if df.empty:
+        return
+
+    cursor = conn.cursor()
     try:
-        with open(config_path, "r") as f:
-            config = json.load(f)
-            return config.get("datasets", {})
-    except FileNotFoundError:
-        print(f"Error: {config_path} not found.")
-        return {}
+        # Ensure schema exists
+        cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+        cursor.execute(f"USE SCHEMA {schema}")
 
-def save_idempotent(df, table_name, hook, engine):
-    """Deletes existing load_ids before appending new data."""
-    if df.empty or 'load_id' not in df.columns:
+        # Uppercase table name and columns for Snowflake consistency
+        table_name = table_name.upper()
+        df.columns = [c.upper() for c in df.columns]
+
+        # Create table if not exists
+        col_defs = []
+        for col, dtype in df.dtypes.items():
+            col_defs.append(f'"{col}" {map_pandas_dtype_to_snowflake(dtype)}')
+        
+        create_sql = f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(col_defs)})"
+        cursor.execute(create_sql)
+
+        # Idempotency: Delete existing data for the load_ids present in the dataframe
+        if 'LOAD_ID' in df.columns:
+            load_ids = df['LOAD_ID'].unique()
+            if len(load_ids) > 0:
+                load_ids_str = ', '.join(map(str, load_ids))
+                cursor.execute(f"DELETE FROM {table_name} WHERE LOAD_ID IN ({load_ids_str})")
+        
+        # Write data
+        write_pandas(conn, df, table_name, schema=schema)
+        
+    finally:
+        cursor.close()
+
+def log_transformation_start(conn, load_id, dataset_name, target_tables):
+    cursor = conn.cursor()
+    try:
+        cursor.execute("CREATE SCHEMA IF NOT EXISTS ADMIN")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ADMIN.TRANSFORMATION_LOGS (
+                transformation_id NUMBER IDENTITY(1,1) PRIMARY KEY,
+                load_id NUMBER,
+                transformation_name VARCHAR(100),
+                target_table VARCHAR(100),
+                status VARCHAR(20),
+                rows_processed NUMBER,
+                error_message TEXT,
+                start_time TIMESTAMP_TZ DEFAULT CURRENT_TIMESTAMP(),
+                end_time TIMESTAMP_TZ
+            )
+        """)
+        
+        cursor.execute("""
+            INSERT INTO ADMIN.TRANSFORMATION_LOGS (load_id, transformation_name, target_table, status)
+            VALUES (%s, %s, %s, 'RUNNING')
+        """, (load_id, dataset_name, target_tables))
+        
+        # Get the generated ID
+        cursor.execute("SELECT MAX(transformation_id) FROM ADMIN.TRANSFORMATION_LOGS WHERE load_id = %s AND transformation_name = %s", (load_id, dataset_name))
+        result = cursor.fetchone()
+        return result[0] if result else None
+    finally:
+        cursor.close()
+
+def log_transformation_end(conn, trans_id, status, row_count, error_message=None):
+    if not trans_id:
         return
-
-    load_ids = df['load_id'].unique().tolist()
-    if not load_ids or df.columns.empty:
-        return
-
-    # Check if table exists
-    if hook.get_first(f"SELECT to_regclass('silver.{table_name}')")[0]:
-        ids_str = ','.join(map(str, load_ids))
-        print(f"Clearing existing data for load_ids: {load_ids} in {table_name}")
-        hook.run(f"DELETE FROM silver.{table_name} WHERE load_id IN ({ids_str})")
-    
-    # Append data
-    df.to_sql(table_name, engine, schema='silver', if_exists='append', index=False)
-    print(f"Success: Wrote {len(df)} rows to silver.{table_name}")
-
-def ensure_log_table_exists(hook):
-    """Ensures the transformation log table exists."""
-    hook.run("""
-        CREATE TABLE IF NOT EXISTS admin.transformation_logs (
-            transformation_id SERIAL PRIMARY KEY,
-            load_id INTEGER,
-            transformation_name VARCHAR(100),
-            target_table VARCHAR(100),
-            status VARCHAR(20),
-            rows_processed INTEGER,
-            error_message TEXT,
-            start_time TIMESTAMP,
-            end_time TIMESTAMP
-        );
-    """)
-
-def log_transformation_start(hook, load_id, transformation_name, target_table):
-    """Logs the start of a transformation."""
-    ensure_log_table_exists(hook)
-    sql = """
-        INSERT INTO admin.transformation_logs 
-        (load_id, transformation_name, target_table, status, start_time)
-        VALUES (%s, %s, %s, 'RUNNING', %s)
-        RETURNING transformation_id;
-    """
-    return hook.get_first(sql, parameters=(load_id, transformation_name, target_table, pendulum.now()))[0]
-
-def log_transformation_end(hook, transformation_id, status, rows_processed, error_message=None):
-    """Logs the end of a transformation."""
-    sql = """
-        UPDATE admin.transformation_logs
-        SET status = %s, rows_processed = %s, error_message = %s, end_time = %s
-        WHERE transformation_id = %s;
-    """
-    hook.run(sql, parameters=(status, rows_processed, error_message, pendulum.now(), transformation_id))
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            UPDATE ADMIN.TRANSFORMATION_LOGS
+            SET status = %s, rows_processed = %s, error_message = %s, end_time = CURRENT_TIMESTAMP()
+            WHERE transformation_id = %s
+        """, (status, row_count, error_message, trans_id))
+    finally:
+        cursor.close()

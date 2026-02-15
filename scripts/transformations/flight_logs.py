@@ -1,63 +1,51 @@
 import pandas as pd
 from transformations.utils import save_idempotent, log_transformation_start, log_transformation_end
 
-def process_flight_logs(datasets_config, engine, hook, load_id=None):
+def process_flight_logs(datasets_config, conn, load_id=None, reprocess=False):
     print("Processing Flight Logs...")
-    flight_config = datasets_config.get('flight_logs', {})
-    flight_table = flight_config.get('target_table', 'flight_logs')
+    flights_config = datasets_config.get('flight_logs', {})
+    flights_table = flights_config.get('target_table', 'flight_logs')
 
     try:
         if load_id:
-            load_ids = [load_id]
+            load_ids = [int(load_id)]
         else:
-            load_ids_df = pd.read_sql(f"SELECT DISTINCT load_id FROM bronze.{flight_table}", engine)
+            load_ids_df = pd.read_sql(f"SELECT DISTINCT load_id FROM bronze.{flights_table}", conn)
+            load_ids_df.columns = [c.lower() for c in load_ids_df.columns]
             load_ids = load_ids_df['load_id'].tolist()
 
+        if not reprocess:
+            processed_df = pd.read_sql(f"SELECT DISTINCT load_id FROM ADMIN.TRANSFORMATION_LOGS WHERE TRANSFORMATION_NAME = 'flight_logs' AND status = 'SUCCESS'", conn)
+            processed_df.columns = [c.lower() for c in processed_df.columns]
+            processed_ids = set(processed_df['load_id'].tolist())
+            load_ids = [lid for lid in load_ids if lid not in processed_ids]
+            if not load_ids:
+                print("No new load_ids to process for flight_logs.")
+
         for load_id in load_ids:
-            trans_id = log_transformation_start(hook, load_id, 'flight_logs', 'flight_logs')
+            trans_id = log_transformation_start(conn, load_id, 'flight_logs', 'flight_logs')
             try:
-                df_flights = pd.read_sql(f"SELECT * FROM bronze.{flight_table} WHERE load_id = {load_id}", engine)
+                df_flights = pd.read_sql(f"SELECT * FROM bronze.{flights_table} WHERE load_id = {load_id}", conn)
                 if not df_flights.empty:
-                    # Normalize columns: lower case and replace spaces with underscores
-                    df_flights.columns = df_flights.columns.str.strip().str.lower().str.replace(' ', '_')
-
-                    # Regex pattern to extract City, Airport, IATA, ICAO
-                    # Format: "City / Airport Name (IATA/ICAO)"
-                    pattern = r'^(?P<city>.*?) / (?P<airport>.*?) \((?P<iata>.*?)/(?P<icao>.*?)\)$'
-
-                    # Apply extraction for 'from' column
-                    if 'from' in df_flights.columns:
-                        dep_data = df_flights['from'].str.extract(pattern)
-                        df_flights['departure_city'] = dep_data['city']
-                        df_flights['departure_airport'] = dep_data['airport']
-                        df_flights['departure_airport_code_iata'] = dep_data['iata']
-                        df_flights['departure_airport_code_icao'] = dep_data['icao']
-
-                    # Apply extraction for 'to' column
-                    if 'to' in df_flights.columns:
-                        arr_data = df_flights['to'].str.extract(pattern)
-                        df_flights['arrival_city'] = arr_data['city']
-                        df_flights['arrival_airport'] = arr_data['airport']
-                        df_flights['arrival_airport_code_iata'] = arr_data['iata']
-                        df_flights['arrival_airport_code_icao'] = arr_data['icao']
-
-                    # Apply extraction for 'airline' column
-                    if 'airline' in df_flights.columns:
-                        airline_pattern = r'^(?P<name>.*?) \((?P<iata>.*?)/(?P<icao>.*?)\)$'
-                        airline_data = df_flights['airline'].str.extract(airline_pattern)
-                        df_flights['airline_name'] = airline_data['name']
-                        df_flights['airline_iata'] = airline_data['iata']
-                        df_flights['airline_icao'] = airline_data['icao']
-
-                    # Drop original composite columns
-                    df_flights.drop(columns=['from', 'to', 'airline'], inplace=True, errors='ignore')
-
-                    save_idempotent(df_flights, 'flight_logs', hook, engine)
-                    log_transformation_end(hook, trans_id, 'SUCCESS', len(df_flights))
+                    # Normalize columns
+                    df_flights.columns = df_flights.columns.str.strip().str.lower()
+                    
+                    # Basic cleaning
+                    if 'date' in df_flights.columns:
+                        df_flights['date'] = pd.to_datetime(df_flights['date']).dt.date
+                    
+                    # Write to Silver
+                    save_idempotent(df_flights, 'flight_logs', conn)
+                    
+                    cursor = conn.cursor()
+                    cursor.execute(f"SELECT COUNT(*) FROM SILVER.FLIGHT_LOGS WHERE load_id = {load_id}")
+                    row_count = cursor.fetchone()[0]
+                    cursor.close()
+                    log_transformation_end(conn, trans_id, 'SUCCESS', row_count)
                 else:
-                    log_transformation_end(hook, trans_id, 'SUCCESS', 0)
+                    log_transformation_end(conn, trans_id, 'SUCCESS', 0)
             except Exception as e:
-                log_transformation_end(hook, trans_id, 'FAILURE', 0, str(e))
+                log_transformation_end(conn, trans_id, 'FAILURE', 0, str(e))
                 raise e
 
     except Exception as e:

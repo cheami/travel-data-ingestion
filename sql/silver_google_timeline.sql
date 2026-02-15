@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS silver.google_timeline (
-    timeline_id SERIAL PRIMARY KEY,
+    timeline_id INT IDENTITY(1,1) PRIMARY KEY,
     load_id INTEGER,
     start_time TIMESTAMP,
     end_time TIMESTAMP,

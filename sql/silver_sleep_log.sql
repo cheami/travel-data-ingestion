@@ -1,22 +1,15 @@
-DROP TABLE IF EXISTS silver.sleep_log;
-
-CREATE TABLE silver.sleep_log (
-    sleep_log_entry_id BIGINT,
-    sleep_start_time TIMESTAMP,
-    sleep_date DATE,
-    day_of_week VARCHAR(20),
-    is_weekend BOOLEAN,
-    overall_score INTEGER,
-    composition_score FLOAT,
-    revitalization_score INTEGER,
-    duration_score FLOAT,
-    deep_sleep_in_minutes INTEGER,
-    resting_heart_rate INTEGER,
-    restlessness FLOAT,
-    sleep_quality_category VARCHAR(20),
-    has_detailed_breakdown BOOLEAN,
-    load_id INTEGER,
-    row_id VARCHAR(255),
-    _ingestion_time TIMESTAMP,
-    _source_file VARCHAR(255)
+create or replace TABLE TRAVEL_DATA.SILVER.SLEEP_LOG (
+	SLEEP_LOG_ENTRY_ID NUMBER(38,0),
+	TIMESTAMP VARCHAR(16777216),
+	OVERALL_SCORE NUMBER(38,0),
+	COMPOSITION_SCORE FLOAT,
+	REVITALIZATION_SCORE NUMBER(38,0),
+	DURATION_SCORE FLOAT,
+	DEEP_SLEEP_IN_MINUTES NUMBER(38,0),
+	RESTING_HEART_RATE NUMBER(38,0),
+	RESTLESSNESS FLOAT,
+	_INGESTION_TIME VARCHAR(16777216),
+	_SOURCE_FILE VARCHAR(16777216),
+	LOAD_ID NUMBER(38,0),
+	ROW_ID VARCHAR(16777216)
 );

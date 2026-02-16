@@ -1,12 +1,9 @@
-DROP TABLE IF EXISTS silver.heart_rate_minute_log;
-
-CREATE TABLE silver.heart_rate_minute_log (
-    log_timestamp VARCHAR,
-    heart_rate_mean FLOAT,
-    heart_rate_min FLOAT,
-    heart_rate_max FLOAT,
-    readings_count INTEGER,
-    hr_zone VARCHAR(20),
-    load_id INTEGER,
-    _ingestion_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+create or replace TABLE TRAVEL_DATA.SILVER.HEART_RATE_MINUTE_LOG (
+	LOG_TIMESTAMP VARCHAR(16777216),
+	LOAD_ID NUMBER(38,0),
+	HEART_RATE_MEAN FLOAT,
+	HEART_RATE_MIN FLOAT,
+	HEART_RATE_MAX FLOAT,
+	READINGS_COUNT NUMBER(38,0),
+	HR_ZONE VARCHAR(16777216)
 );

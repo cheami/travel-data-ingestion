@@ -1,8 +1,6 @@
-DROP TABLE IF EXISTS silver.daily_spend;
-
-CREATE TABLE silver.daily_spend (
-    date DATE,
-    type VARCHAR(255),
-    load_id INTEGER,
-    amount NUMERIC
+create or replace TABLE TRAVEL_DATA.SILVER.DAILY_SPEND (
+	DATE VARCHAR(16777216),
+	TYPE VARCHAR(16777216),
+	LOAD_ID NUMBER(38,0),
+	AMOUNT FLOAT
 );

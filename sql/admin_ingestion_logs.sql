@@ -1,6 +1,4 @@
-DROP TABLE IF EXISTS admin.ingestion_logs;
-
-CREATE TABLE IF NOT EXISTS admin.ingestion_logs (
+create or replace TABLE travel_data.admin.ingestion_logs (
     load_id NUMBER IDENTITY(1,1) PRIMARY KEY,
     file_id NUMBER,
     dataset_name VARCHAR(50),

@@ -1,15 +1,12 @@
-DROP TABLE IF EXISTS silver.all_spending;
-
-CREATE TABLE silver.all_spending (
-    date DATE,
-    type VARCHAR(255),
-    amount NUMERIC,
-    -- Common transaction columns (adjust if your CSV has different names)
-    description TEXT,
-    category VARCHAR(255),
-    -- Metadata
-    load_id INTEGER,
-    row_id VARCHAR(255),
-    _ingestion_time TIMESTAMP,
-    _source_file VARCHAR(255)
+create or replace TABLE TRAVEL_DATA.SILVER.ALL_SPENDING (
+	COUNTRY VARCHAR(16777216),
+	DATE VARCHAR(16777216),
+	NAME VARCHAR(16777216),
+	TYPE VARCHAR(16777216),
+	AMOUNT FLOAT,
+	COMMENTS VARCHAR(16777216),
+	_INGESTION_TIME VARCHAR(16777216),
+	_SOURCE_FILE VARCHAR(16777216),
+	LOAD_ID NUMBER(38,0),
+	ROW_ID VARCHAR(16777216)
 );

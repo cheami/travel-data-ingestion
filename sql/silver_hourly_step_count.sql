@@ -1,9 +1,6 @@
-DROP TABLE IF EXISTS silver.hourly_step_count;
-
-CREATE TABLE silver.hourly_step_count (
-    date DATE,
-    hour INTEGER,
-    steps INTEGER,
-    load_id INTEGER,
-    _ingestion_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+create or replace TABLE TRAVEL_DATA.SILVER.HOURLY_STEP_COUNT (
+	DATE VARCHAR(16777216),
+	HOUR NUMBER(38,0),
+	STEPS NUMBER(38,0),
+	LOAD_ID NUMBER(38,0)
 );

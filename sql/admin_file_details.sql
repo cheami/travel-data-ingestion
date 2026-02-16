@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS admin.file_details (
+create or replace TABLE travel_data.admin.file_details (
     file_id INT IDENTITY(1,1),
     container VARCHAR(50),
     stage VARCHAR(50),

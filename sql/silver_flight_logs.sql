@@ -1,30 +1,25 @@
-DROP TABLE IF EXISTS silver.flight_logs;
-
-CREATE TABLE silver.flight_logs (
-    -- Preserved columns from Bronze
-    flight_date DATE,
-    flight_number VARCHAR(50),
-    
-    -- Extracted Departure Columns
-    departure_city VARCHAR(255),
-    departure_airport VARCHAR(255),
-    departure_airport_code_iata VARCHAR(10),
-    departure_airport_code_icao VARCHAR(10),
-    
-    -- Extracted Arrival Columns
-    arrival_city VARCHAR(255),
-    arrival_airport VARCHAR(255),
-    arrival_airport_code_iata VARCHAR(10),
-    arrival_airport_code_icao VARCHAR(10),
-    
-    -- Extracted Airline Columns
-    airline_name VARCHAR(255),
-    airline_iata VARCHAR(10),
-    airline_icao VARCHAR(10),
-    
-    -- Metadata
-    load_id INTEGER,
-    row_id VARCHAR(255),
-    _ingestion_time TIMESTAMP,
-    _source_file VARCHAR(255)
+create or replace TABLE TRAVEL_DATA.SILVER.FLIGHT_LOGS (
+	DATE VARCHAR(16777216),
+	"FLIGHT NUMBER" VARCHAR(16777216),
+	"FROM" VARCHAR(16777216),
+	"TO" VARCHAR(16777216),
+	"DEP TIME" VARCHAR(16777216),
+	"ARR TIME" VARCHAR(16777216),
+	DURATION VARCHAR(16777216),
+	AIRLINE VARCHAR(16777216),
+	AIRCRAFT VARCHAR(16777216),
+	REGISTRATION VARCHAR(16777216),
+	"SEAT NUMBER" VARCHAR(16777216),
+	"SEAT TYPE" NUMBER(38,0),
+	"FLIGHT CLASS" NUMBER(38,0),
+	"FLIGHT REASON" NUMBER(38,0),
+	NOTE VARCHAR(16777216),
+	DEP_ID NUMBER(38,0),
+	ARR_ID NUMBER(38,0),
+	AIRLINE_ID NUMBER(38,0),
+	AIRCRAFT_ID NUMBER(38,0),
+	_INGESTION_TIME VARCHAR(16777216),
+	_SOURCE_FILE VARCHAR(16777216),
+	LOAD_ID NUMBER(38,0),
+	ROW_ID VARCHAR(16777216)
 );

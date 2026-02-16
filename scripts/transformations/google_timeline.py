@@ -1,5 +1,5 @@
 import pandas as pd
-from transformations.utils import log_transformation_start, log_transformation_end
+from transformations.utils import log_transformation_start, log_transformation_end, check_data_exists
 
 def process_google_timeline(datasets_config, conn, load_id=None, reprocess=False):
     print("Processing Google Timeline...")
@@ -28,6 +28,10 @@ def process_google_timeline(datasets_config, conn, load_id=None, reprocess=False
 
         for load_id in load_ids:
             load_id = int(load_id)
+            if not check_data_exists(conn, load_id, 'bronze', timeline_table):
+                print(f"Skipping load_id {load_id} for google_timeline (no data in bronze).")
+                continue
+
             trans_id = log_transformation_start(conn, load_id, 'google_timeline', 'google_timeline')
             try:
                 cursor = conn.cursor()

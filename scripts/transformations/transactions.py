@@ -1,5 +1,5 @@
 import pandas as pd
-from transformations.utils import save_idempotent, log_transformation_start, log_transformation_end
+from transformations.utils import save_idempotent, log_transformation_start, log_transformation_end, check_data_exists
 
 def process_transactions(datasets_config, conn, load_id=None, reprocess=False):
     print("Processing Transactions...")
@@ -23,6 +23,10 @@ def process_transactions(datasets_config, conn, load_id=None, reprocess=False):
                 print("No new load_ids to process for transactions.")
 
         for load_id in load_ids:
+            if not check_data_exists(conn, load_id, 'bronze', trans_table):
+                print(f"Skipping load_id {load_id} for transactions (no data in bronze).")
+                continue
+
             trans_id = log_transformation_start(conn, load_id, 'transactions', 'daily_spend, all_spending')
             try:
                 df_trans = pd.read_sql(f"SELECT * FROM bronze.{trans_table} WHERE load_id = {load_id}", conn)

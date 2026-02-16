@@ -1,5 +1,5 @@
 import pandas as pd
-from transformations.utils import save_idempotent, log_transformation_start, log_transformation_end
+from transformations.utils import save_idempotent, log_transformation_start, log_transformation_end, check_data_exists
 
 def process_fitbit_steps(datasets_config, conn, load_id=None, reprocess=False):
     print("Processing Fitbit Steps...")
@@ -23,6 +23,10 @@ def process_fitbit_steps(datasets_config, conn, load_id=None, reprocess=False):
                 print("No new load_ids to process for fitbit_steps.")
 
         for load_id in load_ids:
+            if not check_data_exists(conn, load_id, 'bronze', steps_table):
+                print(f"Skipping load_id {load_id} for fitbit_steps (no data in bronze).")
+                continue
+
             trans_id = log_transformation_start(conn, load_id, 'fitbit_steps', 'hourly_step_count')
             try:
                 df_steps = pd.read_sql(f"SELECT * FROM bronze.{steps_table} WHERE load_id = {load_id}", conn)

@@ -1,5 +1,5 @@
 import pandas as pd
-from transformations.utils import save_idempotent, log_transformation_start, log_transformation_end
+from transformations.utils import save_idempotent, log_transformation_start, log_transformation_end, check_data_exists
 
 def get_heart_rate_zone(bpm):
     if pd.isna(bpm): return 'Unknown'
@@ -30,6 +30,10 @@ def process_fitbit_heart_rate(datasets_config, conn, load_id=None, reprocess=Fal
                 print("No new load_ids to process for fitbit_heart_rate.")
 
         for load_id in load_ids:
+            if not check_data_exists(conn, load_id, 'bronze', hr_table):
+                print(f"Skipping load_id {load_id} for fitbit_heart_rate (no data in bronze).")
+                continue
+
             trans_id = log_transformation_start(conn, load_id, 'fitbit_heart_rate', 'heart_rate_minute_log, heart_rate_hourly_summary')
             try:
                 df_hr = pd.read_sql(f"SELECT * FROM bronze.{hr_table} WHERE load_id = {load_id}", conn)

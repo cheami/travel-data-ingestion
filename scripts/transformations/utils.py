@@ -47,6 +47,14 @@ def save_idempotent(df, table_name, conn, schema='SILVER'):
     finally:
         cursor.close()
 
+def check_data_exists(conn, load_id, schema, table):
+    cursor = conn.cursor()
+    try:
+        cursor.execute(f"SELECT 1 FROM {schema}.{table} WHERE load_id = %s LIMIT 1", (load_id,))
+        return cursor.fetchone() is not None
+    finally:
+        cursor.close()
+
 def log_transformation_start(conn, load_id, dataset_name, target_tables):
     cursor = conn.cursor()
     try:

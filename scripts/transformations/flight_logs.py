@@ -1,5 +1,5 @@
 import pandas as pd
-from transformations.utils import save_idempotent, log_transformation_start, log_transformation_end
+from transformations.utils import save_idempotent, log_transformation_start, log_transformation_end, check_data_exists
 
 def process_flight_logs(datasets_config, conn, load_id=None, reprocess=False):
     print("Processing Flight Logs...")
@@ -23,6 +23,10 @@ def process_flight_logs(datasets_config, conn, load_id=None, reprocess=False):
                 print("No new load_ids to process for flight_logs.")
 
         for load_id in load_ids:
+            if not check_data_exists(conn, load_id, 'bronze', flights_table):
+                print(f"Skipping load_id {load_id} for flight_logs (no data in bronze).")
+                continue
+
             trans_id = log_transformation_start(conn, load_id, 'flight_logs', 'flight_logs')
             try:
                 df_flights = pd.read_sql(f"SELECT * FROM bronze.{flights_table} WHERE load_id = {load_id}", conn)

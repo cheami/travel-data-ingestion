@@ -24,7 +24,8 @@ def reset_snowflake_db():
     
     # Read the SQL file
     with open('/opt/airflow/sql/reset_schemas.sql', 'r') as f:
-        sql_commands = f.read().split(';')
+        # Filter out lines starting with '--' to ignore comments
+        sql_commands = "".join(line for line in f if not line.strip().startswith('--')).split(';')
 
     with conn.cursor() as cs:
         # Ensure we are in the correct database

@@ -74,8 +74,8 @@ def log_transformation_start(conn, load_id, dataset_name, target_tables):
         """)
         
         cursor.execute("""
-            INSERT INTO ADMIN.TRANSFORMATION_LOGS (load_id, DATASET_NAME, target_table, status)
-            VALUES (%s, %s, %s, 'RUNNING')
+            INSERT INTO ADMIN.TRANSFORMATION_LOGS (load_id, DATASET_NAME, target_table, status, start_time)
+            VALUES (%s, %s, %s, 'RUNNING', CURRENT_TIMESTAMP())
         """, (load_id, dataset_name, target_tables))
         
         # Get the generated ID

@@ -12,8 +12,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    volumes:
-      - ./sql/init_schemas.sql:/docker-entrypoint-initdb.d/init_schemas.sql
 
   redis:
     image: redis:latest
@@ -102,7 +100,7 @@ services:
       - ./configs:/opt/airflow/configs
       - ./scripts:/opt/airflow/scripts
       - ./sql:/opt/airflow/sql
-    command: airflow celery worker
+    command: celery worker
     depends_on:
       postgres:
         condition: service_healthy

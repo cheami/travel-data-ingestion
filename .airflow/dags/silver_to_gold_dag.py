@@ -40,7 +40,7 @@ default_args = {
 }
 
 with DAG(
-    'silver_to_gold_dag',
+    'silver_to_gold',
     default_args=default_args,
     description='Triggers Gold layer stored procedures in Snowflake',
     schedule_interval=None,

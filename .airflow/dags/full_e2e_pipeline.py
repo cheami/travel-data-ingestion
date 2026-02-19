@@ -18,6 +18,7 @@ with DAG(
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=['e2e', 'orchestration'],
+    is_paused_upon_creation=False,
 ) as dag:
 
     # 1. Ingestion

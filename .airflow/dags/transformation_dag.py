@@ -12,6 +12,7 @@ with DAG(
     schedule_interval=None,
     catchup=False,
     tags=["transformation", "silver"],
+    is_paused_upon_creation=False,
     params={
         "transformation": Param(None, type=["null", "string"], description="Optional: Specific transformation to run (e.g., 'transactions, manual_logs, flight_logs, fitbit_steps, fitbit_sleep_score, fitbit_heart_rate, google_timeline')."),
         "job_id": Param(None, type=["null", "integer"], description="Optional: Specific Job ID (load_id) to process."),

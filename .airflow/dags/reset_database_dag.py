@@ -44,7 +44,8 @@ with DAG(
     default_args=default_args,
     schedule_interval=None,
     description='Resets the Snowflake database by dropping and recreating schemas',
-    tags=['maintenance']
+    tags=['maintenance'],
+    is_paused_upon_creation=False,
 ) as dag:
 
     reset_schemas = PythonOperator(

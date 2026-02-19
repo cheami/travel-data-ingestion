@@ -15,6 +15,7 @@ with DAG(
     catchup=False,
     tags=["ingestion", "metadata-driven"],
     max_active_tasks=1,
+    is_paused_upon_creation=False,
 ) as dag:
 
     configs = load_config()

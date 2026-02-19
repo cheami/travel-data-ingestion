@@ -15,7 +15,7 @@ with DAG(
     default_args=default_args,
     description='Orchestrates the full pipeline: Ingestion -> Silver -> Gold',
     schedule_interval=None,
-    start_date=datetime(2023, 1, 1),
+    start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=['e2e', 'orchestration'],
 ) as dag:
@@ -37,7 +37,8 @@ with DAG(
         trigger_dag_id='silver_transformation',
         wait_for_completion=True,
         poke_interval=20,
-        reset_dag_run=True
+        reset_dag_run=True,
+        execution_timeout=timedelta(minutes=60)
     )
 
     # 3. Transformation (Silver -> Gold)

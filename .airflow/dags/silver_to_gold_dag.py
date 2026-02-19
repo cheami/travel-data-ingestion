@@ -52,11 +52,11 @@ with DAG(
     t1 = PythonOperator(
         task_id='call_full_travel_cost',
         python_callable=execute_gold_procedure,
-        op_kwargs={'procedure_name': 'gold.full_travel_cost'}
+        op_kwargs={'procedure_name': 'gold.SP_FULL_TRAVEL_COST'}
     )
 
     t2 = PythonOperator(
-        task_id='call_test_procedure',
+        task_id='call_travel_tax_report',
         python_callable=execute_gold_procedure,
-        op_kwargs={'procedure_name': 'gold.TESTTESTTEST'}
+        op_kwargs={'procedure_name': 'gold.SP_TRAVEL_TAX_REPORT'}
     )

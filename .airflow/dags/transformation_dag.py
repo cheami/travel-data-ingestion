@@ -23,5 +23,3 @@ with DAG(
         task_id="run_silver_transformations",
         python_callable=transform_silver,
     )
-    
-    transform_task

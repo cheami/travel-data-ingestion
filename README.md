@@ -1,110 +1,157 @@
-# Travel Data Ingestion Pipeline
+# Travel Data Engineering Pipeline
 
-This project is a metadata-driven data ingestion framework using Apache Airflow, PostgreSQL, and Docker. It simulates ingesting data from local files (representing Azure Blob Storage) into a Postgres database (representing the Bronze layer).
+A metadata-driven ETL pipeline to ingest, transform, and analyze personal travel data from a multi-country gap year. Orchestrated with **Airflow**, processed in **Python**, and warehoused in **Snowflake**.
 
-## Prerequisites
+## Tech Stack
 
-- Docker
-- Docker Compose
+* **Orchestration:** Apache Airflow (Docker)
+* **Warehouse:** Snowflake (Bronze/Silver/Gold architecture)
+* **Compute:** Hybrid (Python for parsing/ingestion, Snowflake SQL for aggregation)
+* **Storage:** Azure Blob Storage (Raw data landing)
+* **Language:** Python 3.10 (Pandas, Snowflake Connector)
 
-## Technologies
+## Architecture
 
-- **Apache Airflow**: Orchestration engine for scheduling and monitoring workflows.
-- **PostgreSQL**: Relational database used as the simulated Bronze layer.
-- **Docker**: Containerization for consistent development environments.
-- **Adminer**: Lightweight database management tool.
+This project uses a **Metadata-Driven Ingestion** pattern. Instead of hardcoding DAGs or schema definitions in Python, the pipeline dynamically generates tasks by reading a config table (`ADMIN.FILE_DETAILS`).
 
-## Quick Start
+**Schema Inference:** To handle file layouts, the pipeline inspects the **physical Bronze table** in Snowflake (`DESC TABLE`) at runtime. Instead of duplicating schema logic in a separate `file_columns` config, I chose to use the database DDL as the single source of truth for the expected structure.
 
-### 1. Setup Environment
-Create the `.env` file to ensure Docker uses your current user ID for file permissions. Run this in the project root:
+**Flow:**
+
+1. **Landing:** Raw CSV/JSON files upload to Azure Blob Storage.
+2. **Bronze (Ingestion):** Airflow triggers dynamic ingestion. It reads the config for file patterns and **queries the Bronze table schema** to generate the correct `COPY INTO` statements.
+3. **Silver (Transformation):** Python scripts clean, deduplicate, and normalize data (timestamps, JSON parsing).
+4. **Gold (Reporting):** Stored Procedures aggregate business logic (e.g., trip costs, health recovery stats).
+
+---
+
+### Full Updated README
+
+*(Here is the complete file so you can copy/paste it directly)*
+
+# Travel Data Engineering Pipeline
+
+A metadata-driven ETL pipeline to ingest, transform, and analyze personal travel data from a multi-country gap year. Orchestrated with **Airflow**, processed in **Python**, and warehoused in **Snowflake**.
+
+## Tech Stack
+
+* **Orchestration:** Apache Airflow (Docker)
+* **Warehouse:** Snowflake (Bronze/Silver/Gold architecture)
+* **Compute:** Hybrid (Python for parsing/ingestion, Snowflake SQL for aggregation)
+* **Storage:** Azure Blob Storage (Raw data landing)
+* **Language:** Python 3.10 (Pandas, Snowflake Connector)
+
+## Architecture
+
+This project uses a **Metadata-Driven Ingestion** pattern. Instead of hardcoding DAGs or schema definitions in Python, the pipeline dynamically generates tasks by reading a config table (`ADMIN.FILE_DETAILS`).
+
+**Schema Inference:** To handle file layouts, the pipeline inspects the **physical Bronze table** in Snowflake (`DESC TABLE`) at runtime. Instead of duplicating schema logic in a separate `file_columns` config, I chose to use the database DDL as the single source of truth for the expected structure.
+
+**Flow:**
+
+1. **Landing:** Raw CSV/JSON files upload to Azure Blob Storage.
+2. **Bronze (Ingestion):** Airflow triggers dynamic ingestion. It reads the config for file patterns and **queries the Bronze table schema** to generate the correct `COPY INTO` statements.
+3. **Silver (Transformation):** Python scripts clean, deduplicate, and normalize data (timestamps, JSON parsing).
+4. **Gold (Reporting):** Stored Procedures aggregate business logic (e.g., trip costs, health recovery stats).
+
+---
+
+## Datasets
+
+* **Google Timeline:** Raw JSON extracts of daily location history (manually verified).
+* **Transactions:** Granular logs of every expense, categorized by type (Food, Travel, etc.).
+* **Manual Log:** Master itinerary table (dates, locations, hotels).
+* **Fitbit Data:** Physiological telemetry (Heart Rate, Steps, Sleep Scores) exported from wearable.
+* **Flight Logs:** Aeronautical data exported from Flightradar24.
+
+---
+
+## Pipeline Components (DAGs)
+
+### 1. `metadata_driven_ingestion`
+
+Dynamically iterates through `ADMIN.FILE_DETAILS` to ingest files from Azure to Snowflake Bronze.
+
+* **Idempotency:** Checks `ADMIN.INGESTION_LOGS` before loading. If a filename exists with `status='SUCCESS'`, it skips ingestion to prevent duplicates.
+* **Schema Aware:** Dynamically maps file data to the target table by reading the table's columns from Snowflake metadata.
+
+### 2. `silver_transformation`
+
+Orchestrates Python-based transformations from Bronze to Silver.
+
+* **Incremental Loading:** Reads `load_id`s from Bronze tables. Checks `ADMIN.TRANSFORMATION_LOGS` to only process new/unprocessed batches.
+* **Logic:**
+* **Google Timeline:** Parses nested JSON segments into relational rows.
+* **Fitbit/Logs:** Standardizes timestamps, handles unit conversions, and deduplicates using `load_id`.
+* **Idempotency:** Deletes existing rows for the current `load_id` in the target table before writing (DELETE/INSERT pattern).
+
+
+
+### 3. `silver_to_gold`
+
+Triggers Snowflake Stored Procedures to build analytical tables.
+
+* Offloads heavy join/aggregation logic to Snowflake's compute engine.
+
+### 4. `full_e2e_pipeline`
+
+Orchestrator DAG. Triggers the dependency chain: `Ingestion` -> `Silver` -> `Gold` using `TriggerDagRunOperator`.
+
+### 5. `reset_database`
+
+Utility DAG. Drops and recreates `BRONZE`, `SILVER`, and `GOLD` schemas for clean re-runs.
+
+---
+
+## Gold Reports (Stored Procedures)
+
+### 📊 Full Travel Cost (`SP_FULL_TRAVEL_COST`)
+
+Joins **Manual Logs** (itinerary) with **Transactions** (spend) to create a daily financial ledger.
+
+* **Logic:** Pivots transaction types (Hotel, Food, Activity) into columns.
+* **Output:** Calculates daily totals, running totals, and aggregates comments for high-spend days.
+
+### 🏥 Travel Tax Report (`SP_TRAVEL_TAX_REPORT`)
+
+Analyzes the physiological toll of travel by correlating flight data with health metrics.
+
+* **Logic:** Joins **Flight Logs** with next-day **Fitbit Sleep/Heart Rate** data.
+* **Metrics:** Calculates "Recovery Status" based on flight duration (>4 hours) vs. subsequent deep sleep and heart rate variability.
+
+---
+
+## Setup & Run
+
+### 1. Environment
+
+Create a `.env` file for Docker permissions and start the stack:
 
 ```bash
 echo "AIRFLOW_UID=$(id -u)" > .env
+docker compose up -d --build
+
 ```
 
-### 2. Start Services
-Run the following command to build the custom image (installing dependencies) and start the containers:
+### 2. Snowflake Config
 
-```bash
-docker compose up --build -d
-```
+In Airflow UI (**Admin > Variables**), set your Snowflake credentials:
 
-### 3. Check Status
-Ensure all containers are running and healthy:
+* `snowflake_account`, `snowflake_user`, `snowflake_password`
+* `snowflake_warehouse`, `snowflake_role`
+* `snowflake_database` (Default: `TRAVEL_DATA`)
 
-```bash
-docker compose ps
-```
+### 3. Azure Integration
 
----
+1. Create a Storage Integration and Stage in Snowflake pointing to your Azure Blob Container.
+2. Grant usage permissions to your Airflow Snowflake role.
 
-## Accessing Services
+### 4. Initialization
 
-### Apache Airflow (Orchestration)
-- **URL:** http://localhost:8080
-- **Username:** `admin`
-- **Password:** `admin`
+1. Run the **`reset_database`** DAG to initialize schemas and logging tables.
+2. Populate `ADMIN.FILE_DETAILS` in Snowflake with your file paths/patterns.
+3. Upload raw data to the Azure container.
 
-### Adminer (Database Viewer)
-Use Adminer to query the Postgres database and view ingested tables.
-- **URL:** http://localhost:8081
-- **System:** `PostgreSQL`
-- **Server:** `postgres`
-- **Username:** `airflow`
-- **Password:** `airflow`
-- **Database:** `airflow`
+### 5. Execution
 
----
-
-## How to Run the Pipeline
-
-1.  **Add Data**: Place your source files (CSV or JSON) in the `data/landing/` subdirectories defined in `configs/datasets.json`.
-    *   Example: `data/landing/manual_logs/sample.csv`
-    *   Example: `data/landing/transactions/data.csv`
-    *   Example: `data/landing/fitbit/heart_rate/heart_rate_2023-08-04.csv`
-2.  **Trigger Ingestion**: Go to the Airflow UI, unpause, and trigger the `metadata_driven_ingestion` DAG. This loads data into the `bronze` schema.
-3.  **Trigger Transformation**: Run the `silver_transformation` DAG to move data from `bronze` to `silver`.
-    *   **Parameters**:
-        *   `transformation`: (Optional) Run a specific transformation (e.g., `fitbit_steps`).
-        *   `job_id`: (Optional) Process a specific `load_id`.
-        *   `Reprocess`: (Optional) Set to `True` to re-process data that has already been marked as `SUCCESS` in the transformation logs.
-4.  **Verify**: Check the Airflow logs or use Adminer to query tables in the `bronze` and `silver` schemas.
-5.  **Reset (Optional)**: Trigger the `reset_database` DAG to drop all schemas and start fresh.
-
-## Key Features
-
-### Idempotency & Logging
-The pipeline tracks ingestion and transformation status to ensure data integrity.
-*   **Ingestion**: Files are tracked in `admin.ingestion_logs`. If a file is logged as `SUCCESS`, it is skipped.
-*   **Transformation**: Processed `load_id`s are tracked in `ADMIN.TRANSFORMATION_LOGS`.
-    *   **Incremental**: Scripts check this log to skip already processed batches unless `Reprocess` is set to `True`.
-    *   **Audit**: Accurate row counts are logged for every transformation run by querying the target Silver tables.
-    *   **Traceability**: Each row in the target tables includes a `load_id` column that links back to the log entry.
-
-### Modular Transformations
-Transformation logic is organized in `scripts/transformations/` and processes data incrementally:
-*   **Load-ID Based Processing**: Scripts iterate through distinct `load_id`s in the Bronze layer to process specific batches of data.
-*   **Idempotency**: Existing data for a specific `load_id` is cleared from the Silver table before insertion to prevent duplicates.
-
-# Google Timeline Transformation
-
-## Overview
-This module handles the parsing and transformation of Google Timeline (Location History) JSON data from the Bronze layer to the Silver layer.
-
-## Source
-*   **Table**: `bronze.google_timeline`
-*   **Format**: JSON (Google Takeout Semantic Location History)
-
-### Schema Organization
-Data is organized into the following schemas:
-*   **admin**: System tables like `ingestion_logs`.
-*   **bronze**: Raw data ingested directly from files (e.g., `bronze.google_timeline`, `bronze.fitbit_steps`).
-*   **silver**: Cleaned and aggregated data.
-    *   **Finance**: `daily_spend`, `all_spending`
-    *   **Health**: `hourly_step_count`, `sleep_log`, `sleep_daily_summary`, `heart_rate_minute_log`, `heart_rate_hourly_summary`
-    *   **Travel**: `flight_logs`, `manual_logs`
-*   **gold**: Business-level aggregates (future).
-
-### Configuration
-The `configs/datasets.json` file dynamically controls source paths, file patterns, target schemas, and target tables.
+Trigger **`full_e2e_pipeline`** to run the full ETL process.

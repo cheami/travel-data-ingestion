@@ -25,10 +25,6 @@ This project uses a **Metadata-Driven Ingestion** pattern. Instead of hardcoding
 
 ---
 
-### Full Updated README
-
-*(Here is the complete file so you can copy/paste it directly)*
-
 # Travel Data Engineering Pipeline
 
 A metadata-driven ETL pipeline to ingest, transform, and analyze personal travel data from a multi-country gap year. Orchestrated with **Airflow**, processed in **Python**, and warehoused in **Snowflake**.

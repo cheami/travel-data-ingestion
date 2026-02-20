@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
+# dag args
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -10,6 +11,7 @@ default_args = {
     'retries': 0,
 }
 
+# pipeline setup
 with DAG(
     dag_id='full_e2e_pipeline',
     default_args=default_args,
@@ -21,8 +23,7 @@ with DAG(
     is_paused_upon_creation=False,
 ) as dag:
 
-    # 1. Ingestion
-    # Triggers the metadata_driven_ingestion DAG
+    # trigger ingestion
     ingestion_task = TriggerDagRunOperator(
         task_id='trigger_ingestion',
         trigger_dag_id='metadata_driven_ingestion',
@@ -31,8 +32,7 @@ with DAG(
         reset_dag_run=True
     )
 
-    # 2. Transformation (Bronze -> Silver)
-    # Triggers the silver_transformation DAG
+    # trigger silver
     silver_task = TriggerDagRunOperator(
         task_id='trigger_silver_transformation',
         trigger_dag_id='silver_transformation',
@@ -42,8 +42,7 @@ with DAG(
         execution_timeout=timedelta(minutes=60)
     )
 
-    # 3. Transformation (Silver -> Gold)
-    # Triggers the gold_transformation DAG (Assumed name based on conventions)
+    # trigger gold
     gold_task = TriggerDagRunOperator(
         task_id='trigger_silver_to_gold_transformation',
         trigger_dag_id='silver_to_gold',
@@ -52,4 +51,5 @@ with DAG(
         reset_dag_run=True
     )
 
+    # run order
     ingestion_task >> silver_task >> gold_task

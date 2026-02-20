@@ -1,11 +1,10 @@
-from __future__ import annotations
-
 import pendulum
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.models.param import Param
 from transformation_logic import transform_silver
 
+# dag setup
 with DAG(
     dag_id="silver_transformation",
     start_date=pendulum.datetime(2024, 1, 1, tz="UTC"),
@@ -13,6 +12,7 @@ with DAG(
     catchup=False,
     tags=["transformation", "silver"],
     is_paused_upon_creation=False,
+    # params for manual runs
     params={
         "transformation": Param(None, type=["null", "string"], description="Optional: Specific transformation to run (e.g., 'transactions, manual_logs, flight_logs, fitbit_steps, fitbit_sleep_score, fitbit_heart_rate, google_timeline')."),
         "job_id": Param(None, type=["null", "integer"], description="Optional: Specific Job ID (load_id) to process."),

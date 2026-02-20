@@ -1,13 +1,9 @@
-from __future__ import annotations
-
 import pendulum
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-
-# Import logic from the scripts folder
 from ingestion_logic import load_config, ingest_dataset
 
-# Define the DAG
+# dag setup
 with DAG(
     dag_id="metadata_driven_ingestion",
     start_date=pendulum.datetime(2024, 1, 1, tz="UTC"),
@@ -18,8 +14,10 @@ with DAG(
     is_paused_upon_creation=False,
 ) as dag:
 
+    # get configs
     configs = load_config()
 
+    # loop through datasets and make tasks
     for dataset_name, config in configs.items():
         PythonOperator(
             task_id=f"ingest_{dataset_name}",

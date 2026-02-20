@@ -7,17 +7,15 @@ def process_google_timeline(datasets_config, conn, load_id=None, reprocess=False
     timeline_table = "google_timeline" 
     
     try:
-        # Determine load_ids to process
+        # get load ids
         if load_id:
             load_ids = [int(load_id)]
         else:
-            # Get recent load_ids from bronze that are not in silver
-            # (Simplified logic: just processing specific load_id if provided, or all)
-            # In production, you'd query for unprocessed IDs.
             load_ids_df = pd.read_sql(f"SELECT DISTINCT load_id FROM bronze.{timeline_table}", conn)
             load_ids_df.columns = [c.lower() for c in load_ids_df.columns]
             load_ids = load_ids_df['load_id'].tolist()
 
+        # filter processed
         if not reprocess:
             processed_df = pd.read_sql(f"SELECT DISTINCT load_id FROM ADMIN.TRANSFORMATION_LOGS WHERE DATASET_NAME = 'google_timeline' AND status = 'SUCCESS'", conn)
             processed_df.columns = [c.lower() for c in processed_df.columns]
@@ -34,11 +32,12 @@ def process_google_timeline(datasets_config, conn, load_id=None, reprocess=False
 
             trans_id = log_transformation_start(conn, load_id, 'google_timeline', 'google_timeline')
             try:
+                # call sp
                 cursor = conn.cursor()
-                row_count = 0
                 try:
                     cursor.execute(f"CALL SILVER.PROCESS_GOOGLE_TIMELINE({load_id})")
                     
+                    # get count
                     cursor.execute(f"SELECT COUNT(*) FROM SILVER.GOOGLE_TIMELINE WHERE load_id = {load_id}")
                     row_count = cursor.fetchone()[0]
                 finally:

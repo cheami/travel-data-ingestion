@@ -1,17 +1,17 @@
+from datetime import datetime
+import snowflake.connector
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.models import Variable
-from datetime import datetime
-import snowflake.connector
 
+# dag args
 default_args = {
     'owner': 'airflow',
     'start_date': datetime(2024, 1, 1),
-    'catchup': False,
 }
 
 def reset_snowflake_db():
-    # Connect to Snowflake using Airflow Variables
+    # snowflake conn
     conn = snowflake.connector.connect(
         user=Variable.get("snowflake_user"),
         password=Variable.get("snowflake_password"),
@@ -22,16 +22,17 @@ def reset_snowflake_db():
         role=Variable.get("snowflake_role")
     )
     
-    # Read the SQL file
+    # read sql
     with open('/opt/airflow/sql/reset_schemas.sql', 'r') as f:
-        # Filter out lines starting with '--' to ignore comments
+        # clean comments
         sql_commands = "".join(line for line in f if not line.strip().startswith('--')).split(';')
 
     with conn.cursor() as cs:
-        # Ensure we are in the correct database
+        # set db
         db_name = Variable.get("snowflake_database")
         cs.execute(f"USE DATABASE {db_name}")
         
+        # run commands
         for command in sql_commands:
             if command.strip():
                 print(f"Executing: {command[:50]}...")
@@ -39,10 +40,12 @@ def reset_snowflake_db():
     
     conn.close()
 
+# dag setup
 with DAG(
     'reset_database',
     default_args=default_args,
     schedule_interval=None,
+    catchup=False,
     description='Resets the Snowflake database by dropping and recreating schemas',
     tags=['maintenance'],
     is_paused_upon_creation=False,

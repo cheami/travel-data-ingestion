@@ -7,6 +7,7 @@ def process_fitbit_sleep(datasets_config, conn, load_id=None, reprocess=False):
     sleep_table = sleep_config.get('target_table', 'fitbit_sleep_score')
 
     try:
+        # get load ids
         if load_id:
             load_ids = [int(load_id)]
         else:
@@ -14,6 +15,7 @@ def process_fitbit_sleep(datasets_config, conn, load_id=None, reprocess=False):
             load_ids_df.columns = [c.lower() for c in load_ids_df.columns]
             load_ids = load_ids_df['load_id'].tolist()
 
+        # filter processed
         if not reprocess:
             processed_df = pd.read_sql(f"SELECT DISTINCT load_id FROM ADMIN.TRANSFORMATION_LOGS WHERE DATASET_NAME = 'fitbit_sleep' AND status = 'SUCCESS'", conn)
             processed_df.columns = [c.lower() for c in processed_df.columns]
@@ -29,6 +31,7 @@ def process_fitbit_sleep(datasets_config, conn, load_id=None, reprocess=False):
 
             trans_id = log_transformation_start(conn, load_id, 'fitbit_sleep', 'sleep_log')
             try:
+                # read data
                 df_sleep = pd.read_sql(f"SELECT * FROM bronze.{sleep_table} WHERE load_id = {load_id}", conn)
                 
                 if df_sleep.empty:
@@ -37,7 +40,7 @@ def process_fitbit_sleep(datasets_config, conn, load_id=None, reprocess=False):
 
                 df_sleep.columns = df_sleep.columns.str.strip().str.lower()
 
-                # Ensure date/time types
+                # fix dates
                 if 'dateofsleep' in df_sleep.columns:
                     df_sleep['dateofsleep'] = pd.to_datetime(df_sleep['dateofsleep']).dt.date
                 if 'starttime' in df_sleep.columns:
@@ -45,10 +48,10 @@ def process_fitbit_sleep(datasets_config, conn, load_id=None, reprocess=False):
                 if 'endtime' in df_sleep.columns:
                     df_sleep['endtime'] = pd.to_datetime(df_sleep['endtime'])
 
-                # Save to Silver
-                # Assuming the bronze data is already one row per sleep session
+                # save
                 save_idempotent(df_sleep, 'sleep_log', conn)
                 
+                # log success
                 cursor = conn.cursor()
                 cursor.execute(f"SELECT COUNT(*) FROM SILVER.SLEEP_LOG WHERE load_id = {load_id}")
                 row_count = cursor.fetchone()[0]

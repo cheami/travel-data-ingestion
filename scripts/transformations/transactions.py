@@ -7,6 +7,7 @@ def process_transactions(datasets_config, conn, load_id=None, reprocess=False):
     trans_table = trans_config.get('target_table', 'transactions')
     
     try:
+        # get load ids
         if load_id:
             load_ids = [int(load_id)]
         else:
@@ -14,6 +15,7 @@ def process_transactions(datasets_config, conn, load_id=None, reprocess=False):
             load_ids_df.columns = [c.lower() for c in load_ids_df.columns]
             load_ids = load_ids_df['load_id'].tolist()
 
+        # filter processed
         if not reprocess:
             processed_df = pd.read_sql(f"SELECT DISTINCT load_id FROM ADMIN.TRANSFORMATION_LOGS WHERE DATASET_NAME = 'transactions' AND status = 'SUCCESS'", conn)
             processed_df.columns = [c.lower() for c in processed_df.columns]
@@ -29,33 +31,37 @@ def process_transactions(datasets_config, conn, load_id=None, reprocess=False):
 
             trans_id = log_transformation_start(conn, load_id, 'transactions', 'daily_spend, all_spending')
             try:
+                # read data
                 df_trans = pd.read_sql(f"SELECT * FROM bronze.{trans_table} WHERE load_id = {load_id}", conn)
-                if not df_trans.empty:
-                    df_trans.columns = df_trans.columns.str.strip().str.lower()
-
-                    # Ensure 'type' column exists (default if missing)
-                    if 'type' not in df_trans.columns:
-                        df_trans['type'] = 'uncategorized'
-
-                    # Convert amount to currency (numeric)
-                    df_trans['amount'] = df_trans['amount'].replace({r'[$,]': ''}, regex=True)
-                    df_trans['amount'] = pd.to_numeric(df_trans['amount'])
-
-                    # Aggregate: Daily Spend by Date, Type, AND load_id
-                    daily_spend = df_trans.groupby(['date', 'type', 'load_id'])['amount'].sum().reset_index()
-
-                    save_idempotent(daily_spend, 'daily_spend', conn)
-                    
-                    # Save exact copy to Silver
-                    save_idempotent(df_trans, 'all_spending', conn)
-                    
-                    cursor = conn.cursor()
-                    cursor.execute(f"SELECT COUNT(*) FROM SILVER.ALL_SPENDING WHERE load_id = {load_id}")
-                    row_count = cursor.fetchone()[0]
-                    cursor.close()
-                    log_transformation_end(conn, trans_id, 'SUCCESS', row_count)
-                else:
+                
+                if df_trans.empty:
                     log_transformation_end(conn, trans_id, 'SUCCESS', 0)
+                    continue
+
+                df_trans.columns = df_trans.columns.str.strip().str.lower()
+
+                # fix types
+                if 'type' not in df_trans.columns:
+                    df_trans['type'] = 'uncategorized'
+
+                # clean amount
+                df_trans['amount'] = df_trans['amount'].replace({r'[$,]': ''}, regex=True)
+                df_trans['amount'] = pd.to_numeric(df_trans['amount'])
+
+                # agg daily
+                daily_spend = df_trans.groupby(['date', 'type', 'load_id'])['amount'].sum().reset_index()
+
+                # save
+                save_idempotent(daily_spend, 'daily_spend', conn)
+                save_idempotent(df_trans, 'all_spending', conn)
+                
+                # log success
+                cursor = conn.cursor()
+                cursor.execute(f"SELECT COUNT(*) FROM SILVER.ALL_SPENDING WHERE load_id = {load_id}")
+                row_count = cursor.fetchone()[0]
+                cursor.close()
+                log_transformation_end(conn, trans_id, 'SUCCESS', row_count)
+
             except Exception as e:
                 log_transformation_end(conn, trans_id, 'FAILURE', 0, str(e))
                 raise e

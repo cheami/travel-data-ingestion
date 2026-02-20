@@ -1,4 +1,3 @@
-from __future__ import annotations
 import snowflake.connector
 from airflow.models import Variable
 from ingestion_logic import load_config
@@ -11,14 +10,12 @@ from transformations.fitbit_heart_rate import process_fitbit_heart_rate
 from transformations.google_timeline import process_google_timeline
 
 def transform_silver(**kwargs):
-    """
-    Reads raw data from Bronze, performs aggregations, and writes to Silver.
-    """
+    # start
     print("--- Starting Silver Transformation ---", flush=True)
  
     datasets_config = load_config()
 
-    # Connect to Snowflake using Airflow Variables
+    # snowflake conn
     conn = snowflake.connector.connect(
         user=Variable.get("snowflake_user"),
         password=Variable.get("snowflake_password"),
@@ -29,21 +26,20 @@ def transform_silver(**kwargs):
         role=Variable.get("snowflake_role")
     )
     
-    # Get optional parameters from DAG run config (JSON) OR Airflow Params (UI Form)
+    # get params
     conf = kwargs.get('dag_run').conf if kwargs.get('dag_run') else {}
     params = kwargs.get('params') or {}
 
-    # Priority: Config JSON > UI Params
     target_transform = conf.get('transformation') or params.get('transformation')
     target_load_id = conf.get('job_id') or params.get('job_id')
     target_reprocess = conf.get('Reprocess') or params.get('Reprocess')
 
-    # Normalize Reprocess to boolean (default False/0)
+    # fix bool
     reprocess = str(target_reprocess).lower() in ['true', '1', 'yes', 'on'] if target_reprocess is not None else False
 
     print(f"DEBUG: Configuration detected - Transformation: {target_transform}, Job ID: {target_load_id}, Reprocess: {reprocess}", flush=True)
 
-    # Execute transformations
+    # run transforms
     if not target_transform or target_transform == 'transactions':
         process_transactions(datasets_config, conn, target_load_id, reprocess=reprocess)
     if not target_transform or target_transform == 'manual_logs':

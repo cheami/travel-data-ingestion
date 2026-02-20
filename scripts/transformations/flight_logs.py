@@ -7,6 +7,7 @@ def process_flight_logs(datasets_config, conn, load_id=None, reprocess=False):
     flights_table = flights_config.get('target_table', 'flight_logs')
 
     try:
+        # get load ids
         if load_id:
             load_ids = [int(load_id)]
         else:
@@ -14,6 +15,7 @@ def process_flight_logs(datasets_config, conn, load_id=None, reprocess=False):
             load_ids_df.columns = [c.lower() for c in load_ids_df.columns]
             load_ids = load_ids_df['load_id'].tolist()
 
+        # filter processed
         if not reprocess:
             processed_df = pd.read_sql(f"SELECT DISTINCT load_id FROM ADMIN.TRANSFORMATION_LOGS WHERE DATASET_NAME = 'flight_logs' AND status = 'SUCCESS'", conn)
             processed_df.columns = [c.lower() for c in processed_df.columns]
@@ -29,25 +31,29 @@ def process_flight_logs(datasets_config, conn, load_id=None, reprocess=False):
 
             trans_id = log_transformation_start(conn, load_id, 'flight_logs', 'flight_logs')
             try:
+                # read data
                 df_flights = pd.read_sql(f"SELECT * FROM bronze.{flights_table} WHERE load_id = {load_id}", conn)
-                if not df_flights.empty:
-                    # Normalize columns
-                    df_flights.columns = df_flights.columns.str.strip().str.lower()
-                    
-                    # Basic cleaning
-                    if 'date' in df_flights.columns:
-                        df_flights['date'] = pd.to_datetime(df_flights['date']).dt.date
-                    
-                    # Write to Silver
-                    save_idempotent(df_flights, 'flight_logs', conn)
-                    
-                    cursor = conn.cursor()
-                    cursor.execute(f"SELECT COUNT(*) FROM SILVER.FLIGHT_LOGS WHERE load_id = {load_id}")
-                    row_count = cursor.fetchone()[0]
-                    cursor.close()
-                    log_transformation_end(conn, trans_id, 'SUCCESS', row_count)
-                else:
+                
+                if df_flights.empty:
                     log_transformation_end(conn, trans_id, 'SUCCESS', 0)
+                    continue
+
+                df_flights.columns = df_flights.columns.str.strip().str.lower()
+                
+                # fix dates
+                if 'date' in df_flights.columns:
+                    df_flights['date'] = pd.to_datetime(df_flights['date']).dt.date
+                
+                # save
+                save_idempotent(df_flights, 'flight_logs', conn)
+                
+                # log success
+                cursor = conn.cursor()
+                cursor.execute(f"SELECT COUNT(*) FROM SILVER.FLIGHT_LOGS WHERE load_id = {load_id}")
+                row_count = cursor.fetchone()[0]
+                cursor.close()
+                log_transformation_end(conn, trans_id, 'SUCCESS', row_count)
+
             except Exception as e:
                 log_transformation_end(conn, trans_id, 'FAILURE', 0, str(e))
                 raise e

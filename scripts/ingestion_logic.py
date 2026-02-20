@@ -1,12 +1,9 @@
-from __future__ import annotations
-
 import os
 import snowflake.connector
 from airflow.models import Variable
 
-# Function to retrieve dataset configurations
 def load_config():
-    """Loads the dataset configuration from Snowflake ADMIN.FILE_DETAILS."""
+    # get configs from db
     conn = get_snowflake_conn()
     try:
         cs = conn.cursor()
@@ -21,18 +18,14 @@ def load_config():
         configs = {}
         for row in rows:
             cfg = dict(zip(columns, row))
-            # Use target_table (lowercased) as the key to match previous behavior
+            # use lower key
             configs[cfg['target_table'].lower()] = cfg
         return configs
     finally:
         conn.close()
 
-def get_system_config():
-    """Returns system configuration."""
-    return {"ingestion_log_table": "ADMIN.INGESTION_LOGS"}
-
 def get_snowflake_conn():
-    """Establishes a connection to Snowflake using Airflow Variables."""
+    # snowflake conn
     return snowflake.connector.connect(
         user=Variable.get("snowflake_user"),
         password=Variable.get("snowflake_password"),
@@ -44,18 +37,15 @@ def get_snowflake_conn():
     )
 
 def get_table_columns(cursor, table_name):
-    """Retrieves column names from a Snowflake table, excluding metadata columns."""
+    # get cols
     cursor.execute(f"DESC TABLE {table_name}")
     rows = cursor.fetchall()
-    # Filter out metadata columns
+    # skip metadata
     excluded = {'ROW_ID'}
     return [row[0] for row in rows if row[0].upper() not in excluded]
 
-# Main logic for processing files and loading them into the database
 def ingest_dataset(dataset_name, config, **kwargs):
-    """
-    Ingests data from Azure Blob (via Snowflake Stage) to Snowflake tables.
-    """
+    # ingest data
     stage = config.get("stage").upper()
     if stage and "." not in stage:
         stage = f"ADMIN.{stage}"
@@ -67,22 +57,21 @@ def ingest_dataset(dataset_name, config, **kwargs):
     config_file_id = config.get("file_id")
     
     print(f"--- Starting Ingestion for {dataset_name} ---")
-    print(f"Stage: {stage}, Path: {source_path}, Pattern: {file_pattern}")
 
-    system_config = get_system_config()
-    log_table = system_config.get("ingestion_log_table", "ADMIN.INGESTION_LOGS").upper()
+    log_table = "ADMIN.INGESTION_LOGS"
     
     conn = get_snowflake_conn()
     cs = conn.cursor()
 
     try:
+        # set db
         db_name = Variable.get("snowflake_database").strip().upper()
         cs.execute(f"USE DATABASE {db_name}")
         cs.execute(f"USE SCHEMA {target_schema}")
         
         full_target_table = f"{db_name}.{target_schema}.{target_table}"
         
-        # Get columns and prepare select statement
+        # get cols
         columns = [f'"{col.replace(" ", "_").upper()}"' for col in get_table_columns(cs, full_target_table)]
         columns_str = ", ".join(columns)
         
@@ -91,7 +80,7 @@ def ingest_dataset(dataset_name, config, **kwargs):
         else:
             select_str = ", ".join([f"${i+1}" for i in range(len(columns) - 3)])
         
-        # Ensure Logging Table Exists with new file_id column
+        # make log table
         cs.execute(f"""
             CREATE TABLE IF NOT EXISTS {log_table} (
                 load_id NUMBER IDENTITY(1,1) PRIMARY KEY,
@@ -109,8 +98,7 @@ def ingest_dataset(dataset_name, config, **kwargs):
             )
         """)
 
-        # List files in stage
-        # Convert simple glob to regex for Snowflake LIST PATTERN if needed
+        # list files
         regex_pattern = file_pattern.replace('.', '\\.').replace('*', '.*')
         
         list_sql = f"LIST @{stage}/{source_path} PATTERN='{regex_pattern}'"
@@ -124,9 +112,8 @@ def ingest_dataset(dataset_name, config, **kwargs):
 
         print(f"Found {len(files)} files.")
 
+        # loop files
         for row in files:
-            # row[0] includes the stage name (e.g., "AZURE_STAGE/path/to/file.csv")
-            # We need to strip the stage name to get the relative path
             full_file_path = row[0]
             if '/' in full_file_path:
                 full_file_path = full_file_path.split('/', 1)[1]
@@ -134,7 +121,7 @@ def ingest_dataset(dataset_name, config, **kwargs):
             file_name = os.path.basename(full_file_path)
             file_size = row[1]
             
-            # Idempotency Check
+            # check if loaded
             check_sql = f"SELECT 1 FROM {log_table} WHERE file_name = %s AND status = 'SUCCESS'"
             cs.execute(check_sql, (file_name,))
             if cs.fetchone():
@@ -143,7 +130,7 @@ def ingest_dataset(dataset_name, config, **kwargs):
 
             print(f"Processing {file_name}...")
             
-            # Start Log
+            # log start
             insert_init_sql = f"""
                 INSERT INTO {log_table} 
                 (file_id, dataset_name, file_name, file_size_bytes, file_type, status, ingestion_timestamp, target_schema, target_table)
@@ -172,7 +159,7 @@ def ingest_dataset(dataset_name, config, **kwargs):
                 else:
                     format_opts = f"FORMAT_NAME = '{file_fmt}', error_on_column_count_mismatch=false"
 
-                # COPY INTO Temporary Table
+                # copy data
                 copy_sql = f"""
                     COPY INTO {full_target_table} ({columns_str})
                     FROM (
@@ -184,11 +171,10 @@ def ingest_dataset(dataset_name, config, **kwargs):
                 """
                 cs.execute(copy_sql)
                 
-                # Get row count
+                # get count
                 res = cs.fetchone()
                 
                 if res and len(res) >= 4:
-                    # Result columns: file, status, rows_parsed, rows_loaded, ...
                     copy_status = res[1]
                     row_count = res[3]
                     
@@ -206,6 +192,7 @@ def ingest_dataset(dataset_name, config, **kwargs):
                 error_message = str(e)
                 print(f"Error loading {file_name}: {e}")
             
+            # update log
             update_log_sql = f"""
                 UPDATE {log_table} 
                 SET row_count = %s, status = %s, error_message = %s

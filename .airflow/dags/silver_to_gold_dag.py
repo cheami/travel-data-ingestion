@@ -1,15 +1,12 @@
-from __future__ import annotations
 from datetime import datetime, timedelta
 import snowflake.connector
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.models import Variable
 
+# run sp
 def execute_gold_procedure(procedure_name):
-    """
-    Connects to Snowflake and executes the given stored procedure.
-    """
-    print("Establishing connection to Snowflake...")
+    # snowflake conn
     conn = snowflake.connector.connect(
         user=Variable.get("snowflake_user"),
         password=Variable.get("snowflake_password"),
@@ -24,12 +21,14 @@ def execute_gold_procedure(procedure_name):
         cursor = conn.cursor()
         query = f"CALL {procedure_name}()"
         print(f"Executing: {query}")
+        # execute
         cursor.execute(query)
         result = cursor.fetchall()
         print(f"Procedure execution result: {result}")
     finally:
         conn.close()
 
+# dag args
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -39,6 +38,7 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
+# dag setup
 with DAG(
     'silver_to_gold',
     default_args=default_args,
@@ -60,4 +60,10 @@ with DAG(
         task_id='call_travel_tax_report',
         python_callable=execute_gold_procedure,
         op_kwargs={'procedure_name': 'gold.SP_TRAVEL_TAX_REPORT'}
+    )
+
+    t3 = PythonOperator(
+        task_id='call_transport_mode_analysis',
+        python_callable=execute_gold_procedure,
+        op_kwargs={'procedure_name': 'gold.SP_TRANSPORT_MODE_ANALYSIS'}
     )

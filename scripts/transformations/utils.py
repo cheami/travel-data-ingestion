@@ -2,6 +2,7 @@ import pandas as pd
 from snowflake.connector.pandas_tools import write_pandas
 
 def map_pandas_dtype_to_snowflake(dtype):
+    # map types
     if pd.api.types.is_integer_dtype(dtype): return "NUMBER"
     if pd.api.types.is_float_dtype(dtype): return "FLOAT"
     if pd.api.types.is_bool_dtype(dtype): return "BOOLEAN"
@@ -9,24 +10,21 @@ def map_pandas_dtype_to_snowflake(dtype):
     return "STRING"
 
 def save_idempotent(df, table_name, conn, schema='SILVER'):
-    """
-    Writes a DataFrame to Snowflake idempotently.
-    Deletes existing rows for the load_ids present in the DataFrame before writing.
-    """
+    # save data safely
     if df.empty:
         return
 
     cursor = conn.cursor()
     try:
-        # Ensure schema exists
+        # setup schema
         cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
         cursor.execute(f"USE SCHEMA {schema}")
 
-        # Uppercase table name and columns for Snowflake consistency
+        # fix names
         table_name = table_name.upper()
         df.columns = [c.upper() for c in df.columns]
 
-        # Create table if not exists
+        # make table
         col_defs = []
         for col, dtype in df.dtypes.items():
             col_defs.append(f'"{col}" {map_pandas_dtype_to_snowflake(dtype)}')
@@ -34,20 +32,21 @@ def save_idempotent(df, table_name, conn, schema='SILVER'):
         create_sql = f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(col_defs)})"
         cursor.execute(create_sql)
 
-        # Idempotency: Delete existing data for the load_ids present in the dataframe
+        # delete old data
         if 'LOAD_ID' in df.columns:
             load_ids = df['LOAD_ID'].unique()
             if len(load_ids) > 0:
                 load_ids_str = ', '.join(map(str, load_ids))
                 cursor.execute(f"DELETE FROM {table_name} WHERE LOAD_ID IN ({load_ids_str})")
         
-        # Write data
+        # write
         write_pandas(conn, df, table_name, schema=schema)
         
     finally:
         cursor.close()
 
 def check_data_exists(conn, load_id, schema, table):
+    # check if data is there
     cursor = conn.cursor()
     try:
         cursor.execute(f"SELECT 1 FROM {schema}.{table} WHERE load_id = %s LIMIT 1", (load_id,))
@@ -56,6 +55,7 @@ def check_data_exists(conn, load_id, schema, table):
         cursor.close()
 
 def log_transformation_start(conn, load_id, dataset_name, target_tables):
+    # start log
     cursor = conn.cursor()
     try:
         cursor.execute("CREATE SCHEMA IF NOT EXISTS ADMIN")
@@ -73,12 +73,13 @@ def log_transformation_start(conn, load_id, dataset_name, target_tables):
             )
         """)
         
+        # insert running
         cursor.execute("""
             INSERT INTO ADMIN.TRANSFORMATION_LOGS (load_id, DATASET_NAME, target_table, status, start_time)
             VALUES (%s, %s, %s, 'RUNNING', CURRENT_TIMESTAMP())
         """, (load_id, dataset_name, target_tables))
         
-        # Get the generated ID
+        # get id
         cursor.execute("SELECT MAX(transformation_id) FROM ADMIN.TRANSFORMATION_LOGS WHERE load_id = %s AND DATASET_NAME = %s", (load_id, dataset_name))
         result = cursor.fetchone()
         return result[0] if result else None
@@ -86,6 +87,7 @@ def log_transformation_start(conn, load_id, dataset_name, target_tables):
         cursor.close()
 
 def log_transformation_end(conn, trans_id, status, row_count, error_message=None):
+    # update log
     if not trans_id:
         return
     cursor = conn.cursor()

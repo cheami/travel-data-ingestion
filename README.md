@@ -117,6 +117,38 @@ Analyzes the physiological toll of travel by correlating flight data with health
 
 ---
 
+## Streamlit Dashboards
+
+This repository includes two Streamlit applications located in the `streamlit/` directory to visualize travel data stored in Snowflake.
+
+### 1. Daily Travel Summary
+**File:** `streamlit/daily_travel_summary.py`
+
+A dashboard designed to provide a high-level summary of a specific travel date. It calls a stored procedure (`TRAVEL_DATA.GOLD.SP_GET_DAILY_TRAVEL_SUMMARY`) to retrieve aggregated data.
+
+**Key Features:**
+*   **Top Level Metrics:** Displays total money spent, total steps taken, and sleep score for the day.
+*   **Logs & Flights:** Lists manual journal entries and flight details if available.
+*   **Spending Breakdown:** Visualizes expenses by category using a bar chart and detailed table.
+*   **Geospatial Timeline:** Shows a map of the day's movements (visits and activities) alongside a segment-by-segment timeline.
+
+### 2. Travel & Movement Map
+**File:** `streamlit/travel_and_movement_map.py`
+
+An advanced analytics and mapping dashboard that operates over a selected date range. It queries Silver-layer tables directly to render complex visualizations using PyDeck.
+
+**Key Features:**
+*   **Interactive Map:** Renders travel routes with specific visualizations:
+    *   **Color-coded Paths:** Different colors for Walking, Driving, Trains/Buses, and Flying.
+    *   **Flight Arcs:** 3D arcs representing flights between locations.
+*   **Itinerary & Analytics:**
+    *   **Daily Itinerary:** A collapsible list of daily activities, hotel stays, and transactions.
+    *   **Spending Tab:** Daily spending trends and top expensive transactions.
+    *   **Movement Tab:** Daily step counts and distance traveled by transport mode.
+    *   **Health Tab:** Trends for sleep scores and resting heart rate.
+
+---
+
 ## Setup & Run
 
 ### 1. Environment

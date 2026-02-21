@@ -1,6 +1,9 @@
-# Travel Data Engineering Pipeline
+# Travel Data Engineering Project
 
 A metadata-driven ETL pipeline to ingest, transform, and analyze personal travel data from a multi-country gap year. Orchestrated with **Airflow**, processed in **Python**, and warehoused in **Snowflake**.
+
+## Project Demo
+[![Project Demo](https://img.youtube.com/vi/2Sd4EA-f5pc/0.jpg)](https://www.youtube.com/watch?v=2Sd4EA-f5pc)
 
 ## Tech Stack
 

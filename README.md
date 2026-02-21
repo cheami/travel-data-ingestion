@@ -25,33 +25,6 @@ This project uses a **Metadata-Driven Ingestion** pattern. Instead of hardcoding
 
 ---
 
-# Travel Data Engineering Pipeline
-
-A metadata-driven ETL pipeline to ingest, transform, and analyze personal travel data from a multi-country gap year. Orchestrated with **Airflow**, processed in **Python**, and warehoused in **Snowflake**.
-
-## Tech Stack
-
-* **Orchestration:** Apache Airflow (Docker)
-* **Warehouse:** Snowflake (Bronze/Silver/Gold architecture)
-* **Compute:** Hybrid (Python for parsing/ingestion, Snowflake SQL for aggregation)
-* **Storage:** Azure Blob Storage (Raw data landing)
-* **Language:** Python 3.10 (Pandas, Snowflake Connector)
-
-## Architecture
-
-This project uses a **Metadata-Driven Ingestion** pattern. Instead of hardcoding DAGs or schema definitions in Python, the pipeline dynamically generates tasks by reading a config table (`ADMIN.FILE_DETAILS`).
-
-**Schema Inference:** To handle file layouts, the pipeline inspects the **physical Bronze table** in Snowflake (`DESC TABLE`) at runtime. Instead of duplicating schema logic in a separate `file_columns` config, I chose to use the database DDL as the single source of truth for the expected structure.
-
-**Flow:**
-
-1. **Landing:** Raw CSV/JSON files upload to Azure Blob Storage.
-2. **Bronze (Ingestion):** Airflow triggers dynamic ingestion. It reads the config for file patterns and **queries the Bronze table schema** to generate the correct `COPY INTO` statements.
-3. **Silver (Transformation):** Python scripts clean, deduplicate, and normalize data (timestamps, JSON parsing).
-4. **Gold (Reporting):** Stored Procedures aggregate business logic (e.g., trip costs, health recovery stats).
-
----
-
 ## Datasets
 
 * **Google Timeline:** Raw JSON extracts of daily location history (manually verified).

@@ -121,7 +121,7 @@ if len(selected_dates) == 2:
             if show_flights:
                 flight_df = move_df[move_df['ACTIVITY_TYPE'] == 'FLYING']
 
-    logs_df = session.sql(f"SELECT DATE, CITY, COUNTY, DESCRIPTION, COMMENTS, HOTEL FROM TRAVEL_DATA.SILVER.MANUAL_LOGS WHERE TO_DATE(DATE) BETWEEN '{start_date}' AND '{end_date}' ORDER BY DATE ASC").to_pandas()
+    logs_df = session.sql(f"SELECT DATE, CITY, COUNTRY, DESCRIPTION, COMMENTS, HOTEL FROM TRAVEL_DATA.SILVER.MANUAL_LOGS WHERE TO_DATE(DATE) BETWEEN '{start_date}' AND '{end_date}' ORDER BY DATE ASC").to_pandas()
     tx_df = session.sql(f"SELECT DATE, TYPE, NAME, AMOUNT FROM TRAVEL_DATA.SILVER.ALL_SPENDING WHERE TO_DATE(DATE) BETWEEN '{start_date}' AND '{end_date}' ORDER BY TYPE ASC, AMOUNT DESC").to_pandas()
     flight_logs = session.sql(f'SELECT TO_DATE(DATE) AS DATE, FLIGHT_NUMBER, AIRLINE, "FROM", "TO", AIRCRAFT, DURATION FROM TRAVEL_DATA.SILVER.FLIGHT_LOGS WHERE TO_DATE(DATE) BETWEEN \'{start_date}\' AND \'{end_date}\'').to_pandas()
     sleep_df = session.sql(f"SELECT TO_DATE(LEFT(TIMESTAMP, 10)) AS DATE, OVERALL_SCORE, DEEP_SLEEP_IN_MINUTES, RESTING_HEART_RATE FROM TRAVEL_DATA.SILVER.SLEEP_LOG WHERE TO_DATE(LEFT(TIMESTAMP, 10)) BETWEEN '{start_date}' AND '{end_date}' ORDER BY DATE ASC").to_pandas()
@@ -170,7 +170,7 @@ if len(selected_dates) == 2:
                 dt = str(row['DATE'])
                 day_flights = flight_logs[flight_logs['DATE'].astype(str) == dt]
                 icon = " ✈️" if not day_flights.empty else ""
-                with st.expander(f"📍 {dt} - {row['CITY']}, {row['COUNTY']}{icon}"):
+                with st.expander(f"📍 {dt} - {row['CITY']}, {row['COUNTRY']}{icon}"):
                     if pd.notna(row['DESCRIPTION']) and str(row['DESCRIPTION']).lower() != 'none': st.write(f"**Activity:** {row['DESCRIPTION']}")
                     if pd.notna(row['COMMENTS']) and str(row['COMMENTS']).lower() != 'none': st.write(f"**Notes:** {row['COMMENTS']}")
                     if pd.notna(row['HOTEL']) and str(row['HOTEL']).lower() != 'none': st.write(f"**Hotel:** {row['HOTEL']}")
